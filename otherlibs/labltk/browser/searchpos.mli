@@ -64,7 +64,7 @@ type fkind = [
   | `Module of Path.t * Types.module_type
 ]
 val search_pos_structure :
-    pos:int -> Typedtree.structure_item list ->
+    pos:int -> Typedtree.structure ->
     (fkind * Env.t * Location.t) list
 val search_pos_info :
     pos:int -> Stypes.annotation list -> (fkind * Env.t * Location.t) list

@@ -84,18 +84,19 @@ let rec add_class_type bv cty =
   match cty.pcty_desc with
     Pcty_constr(l, tyl) ->
       add bv l; List.iter (add_type bv) tyl
-  | Pcty_signature (ty, fieldl) ->
+  | Pcty_signature { pcsig_self = ty; pcsig_fields = fieldl } ->
       add_type bv ty;
       List.iter (add_class_type_field bv) fieldl
   | Pcty_fun(_, ty1, cty2) ->
       add_type bv ty1; add_class_type bv cty2
 
-and add_class_type_field bv = function
+and add_class_type_field bv pctf = 
+  match pctf.pctf_desc with
     Pctf_inher cty -> add_class_type bv cty
-  | Pctf_val(_, _, _, ty, _) -> add_type bv ty
-  | Pctf_virt(_, _, ty, _) -> add_type bv ty
-  | Pctf_meth(_, _, ty, _) -> add_type bv ty
-  | Pctf_cstr(ty1, ty2, _) -> add_type bv ty1; add_type bv ty2
+  | Pctf_val(_, _, _, ty) -> add_type bv ty
+  | Pctf_virt(_, _, ty) -> add_type bv ty
+  | Pctf_meth(_, _, ty) -> add_type bv ty
+  | Pctf_cstr(ty1, ty2) -> add_type bv ty1; add_type bv ty2
 
 let add_class_description bv infos =
   add_class_type bv infos.pci_expr
@@ -161,7 +162,7 @@ let rec add_expr bv exp =
   | Pexp_assertfalse -> ()
   | Pexp_lazy (e) -> add_expr bv e
   | Pexp_poly (e, t) -> add_expr bv e; add_opt add_type bv t
-  | Pexp_object (pat, fieldl) ->
+  | Pexp_object { pcstr_pat = pat; pcstr_fields = fieldl } ->
       add_pattern bv pat; List.iter (add_class_field bv) fieldl
   | Pexp_newtype (_, e) -> add_expr bv e
   | Pexp_pack m -> add_module bv m
@@ -281,7 +282,7 @@ and add_class_expr bv ce =
   match ce.pcl_desc with
     Pcl_constr(l, tyl) ->
       add bv l; List.iter (add_type bv) tyl
-  | Pcl_structure(pat, fieldl) ->
+  | Pcl_structure { pcstr_pat = pat; pcstr_fields = fieldl } ->
       add_pattern bv pat; List.iter (add_class_field bv) fieldl
   | Pcl_fun(_, opte, pat, ce) ->
       add_opt add_expr bv opte; add_pattern bv pat; add_class_expr bv ce
@@ -292,14 +293,15 @@ and add_class_expr bv ce =
   | Pcl_constraint(ce, ct) ->
       add_class_expr bv ce; add_class_type bv ct
 
-and add_class_field bv = function
+and add_class_field bv pcf = 
+  match pcf.pcf_desc with
     Pcf_inher(_, ce, _) -> add_class_expr bv ce
-  | Pcf_val(_, _, _, e, _) -> add_expr bv e
-  | Pcf_valvirt(_, _, ty, _)
-  | Pcf_virt(_, _, ty, _) -> add_type bv ty
-  | Pcf_meth(_, _, _, e, _) -> add_expr bv e
-  | Pcf_cstr(ty1, ty2, _) -> add_type bv ty1; add_type bv ty2
-  | Pcf_let(_, pel, _) -> add_pat_expr_list bv pel
+  | Pcf_val(_, _, _, e) -> add_expr bv e
+  | Pcf_valvirt(_, _, ty)
+  | Pcf_virt(_, _, ty) -> add_type bv ty
+  | Pcf_meth(_, _, _, e) -> add_expr bv e
+  | Pcf_constr(ty1, ty2) -> add_type bv ty1; add_type bv ty2
+  | Pcf_let(_, pel) -> add_pat_expr_list bv pel
   | Pcf_init e -> add_expr bv e
 
 and add_class_declaration bv decl =

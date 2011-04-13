@@ -376,30 +376,31 @@ and class_type i ppf x =
       core_type i ppf co;
       class_type i ppf cl;
 
-and class_signature i ppf (ct, l) =
+and class_signature i ppf { pcsig_self = ct; pcsig_fields = l } =
   line i ppf "class_signature\n";
   core_type (i+1) ppf ct;
   list (i+1) class_type_field ppf l;
 
 and class_type_field i ppf x =
-  match x with
+  let loc = x.pctf_loc in
+  match x.pctf_desc with
   | Pctf_inher (ct) ->
       line i ppf "Pctf_inher\n";
       class_type i ppf ct;
-  | Pctf_val (s, mf, vf, ct, loc) ->
+  | Pctf_val (s, mf, vf, ct) ->
       line i ppf
         "Pctf_val \"%s\" %a %a %a\n" s
         fmt_mutable_flag mf fmt_virtual_flag vf fmt_location loc;
       core_type (i+1) ppf ct;
-  | Pctf_virt (s, pf, ct, loc) ->
+  | Pctf_virt (s, pf, ct) ->
       line i ppf
         "Pctf_virt \"%s\" %a %a\n" s fmt_private_flag pf fmt_location loc;
       core_type (i+1) ppf ct;
-  | Pctf_meth (s, pf, ct, loc) ->
+  | Pctf_meth (s, pf, ct) ->
       line i ppf
         "Pctf_meth \"%s\" %a %a\n" s fmt_private_flag pf fmt_location loc;
       core_type (i+1) ppf ct;
-  | Pctf_cstr (ct1, ct2, loc) ->
+  | Pctf_cstr (ct1, ct2) ->
       line i ppf "Pctf_cstr %a\n" fmt_location loc;
       core_type i ppf ct1;
       core_type i ppf ct2;
@@ -453,38 +454,39 @@ and class_expr i ppf x =
       class_expr i ppf ce;
       class_type i ppf ct;
 
-and class_structure i ppf (p, l) =
+and class_structure i ppf { pcstr_pat = p; pcstr_fields = l } =
   line i ppf "class_structure\n";
   pattern (i+1) ppf p;
   list (i+1) class_field ppf l;
 
 and class_field i ppf x =
-  match x with
+  let loc = x.pcf_loc in
+  match x.pcf_desc with
   | Pcf_inher (ovf, ce, so) ->
       line i ppf "Pcf_inher %a\n" fmt_override_flag ovf;
       class_expr (i+1) ppf ce;
       option (i+1) string ppf so;
-  | Pcf_valvirt (s, mf, ct, loc) ->
+  | Pcf_valvirt (s, mf, ct) ->
       line i ppf "Pcf_valvirt \"%s\" %a %a\n"
         s fmt_mutable_flag mf fmt_location loc;
       core_type (i+1) ppf ct;
-  | Pcf_val (s, mf, ovf, e, loc) ->
+  | Pcf_val (s, mf, ovf, e) ->
       line i ppf "Pcf_val \"%s\" %a %a %a\n"
         s fmt_mutable_flag mf fmt_override_flag ovf fmt_location loc;
       expression (i+1) ppf e;
-  | Pcf_virt (s, pf, ct, loc) ->
+  | Pcf_virt (s, pf, ct) ->
       line i ppf "Pcf_virt \"%s\" %a %a\n"
         s fmt_private_flag pf fmt_location loc;
       core_type (i+1) ppf ct;
-  | Pcf_meth (s, pf, ovf, e, loc) ->
+  | Pcf_meth (s, pf, ovf, e) ->
       line i ppf "Pcf_meth \"%s\" %a %a %a\n"
         s fmt_private_flag pf fmt_override_flag ovf fmt_location loc;
       expression (i+1) ppf e;
-  | Pcf_cstr (ct1, ct2, loc) ->
-      line i ppf "Pcf_cstr %a\n" fmt_location loc;
+  | Pcf_constr (ct1, ct2) ->
+      line i ppf "Pcf_constr %a\n" fmt_location loc;
       core_type (i+1) ppf ct1;
       core_type (i+1) ppf ct2;
-  | Pcf_let (rf, l, loc) ->
+  | Pcf_let (rf, l) ->
       line i ppf "Pcf_let %a %a\n" fmt_rec_flag rf fmt_location loc;
       list (i+1) pattern_x_expression_def ppf l;
   | Pcf_init (e) ->

@@ -241,20 +241,20 @@ and class_expr ppf tbl ce =
       let_pel ppf tbl recflag pel (Some (fun ppf tbl -> class_expr ppf tbl ce));
   | Pcl_constraint (ce, _) -> class_expr ppf tbl ce;
 
-and class_structure ppf tbl (p, cfl) =
+and class_structure ppf tbl { pcstr_pat = p; pcstr_fields = cfl } =
   let defined = get_vars ([], []) p in
   add_vars tbl defined;
   List.iter (class_field ppf tbl) cfl;
   check_rm_vars ppf tbl defined;
 
 and class_field ppf tbl cf =
-  match cf with
+  match cf.pcf_desc with
   | Pcf_inher (_, ce, _) -> class_expr ppf tbl ce;
-  | Pcf_val (_, _, _, e, _) -> expression ppf tbl e;
+  | Pcf_val (_, _, _, e) -> expression ppf tbl e;
   | Pcf_virt _ | Pcf_valvirt _ -> ()
-  | Pcf_meth (_, _, _, e, _) -> expression ppf tbl e;
-  | Pcf_cstr _ -> ()
-  | Pcf_let (recflag, pel, _) -> let_pel ppf tbl recflag pel None;
+  | Pcf_meth (_, _, _, e) -> expression ppf tbl e;
+  | Pcf_constr _ -> ()
+  | Pcf_let (recflag, pel) -> let_pel ppf tbl recflag pel None;
   | Pcf_init e -> expression ppf tbl e;
 ;;
 

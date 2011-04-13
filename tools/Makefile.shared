@@ -23,12 +23,12 @@ INCLUDES=-I ../utils -I ../parsing -I ../typing -I ../bytecomp -I ../asmcomp \
 COMPFLAGS= -warn-error A $(INCLUDES)
 LINKFLAGS=$(INCLUDES)
 
-all: ocamldep ocamlprof ocamlcp ocamlmktop ocamlmklib dumpobj objinfo
-# scrapelabels addlabels
+all: ocamldep ocamlprof ocamlcp ocamlmktop ocamlmklib dumpobj objinfo genannot
+# scrapelabels addlabels 
 
 .PHONY: all
 
-opt.opt: ocamldep.opt
+opt.opt: ocamldep.opt genannot.opt
 .PHONY: opt.opt
 
 # The dependency generator
@@ -225,6 +225,46 @@ clean::
 	rm -f opnames.ml
 
 beforedepend:: opnames.ml
+
+# Convert .types files to .annot
+
+
+GENANNOT_OBJ=\
+  ../utils/misc.cmo \
+  ../utils/tbl.cmo \
+  ../utils/consistbl.cmo \
+  ../utils/config.cmo \
+  ../utils/clflags.cmo \
+  ../utils/warnings.cmo \
+  ../parsing/linenum.cmo \
+  ../parsing/location.cmo \
+  ../typing/ident.cmo \
+  ../typing/path.cmo \
+  ../typing/types.cmo \
+  ../typing/btype.cmo \
+  ../typing/subst.cmo \
+  ../typing/predef.cmo \
+  ../typing/datarepr.cmo \
+  ../typing/env.cmo \
+  ../typing/typedtree.cmo \
+  ../typing/ctype.cmo \
+  ../typing/oprint.cmo \
+  ../typing/primitive.cmo \
+  ../typing/printtyp.cmo \
+  ../typing/stypes.cmo \
+  genannot.cmo
+
+genannot: $(GENANNOT_OBJ)
+	$(CAMLC) -o genannot $(GENANNOT_OBJ)
+
+genannot.opt: $(GENANNOT_OBJ:.cmo=.cmx)
+	$(CAMLOPT) $(LINKFLAGS) -o genannot.opt $(GENANNOT_OBJ:.cmo=.cmx)
+
+install::
+	cp genannot $(BINDIR)/genannot$(EXE)
+
+clean::
+	rm -f genannot
 
 # Display info on compiled files
 

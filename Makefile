@@ -17,8 +17,8 @@
 include config/Makefile
 include stdlib/StdlibModules
 
-CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
-CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot -g -annot
+CAMLOPT=boot/ocamlrun ./ocamlopt -I -nostdlib -I stdlib -I otherlibs/dynlink -annot
 COMPFLAGS=-strict-sequence -warn-error A $(INCLUDES)
 LINKFLAGS=
 
@@ -42,14 +42,16 @@ OPTUTILS=$(UTILS)
 
 PARSING=parsing/linenum.cmo parsing/location.cmo parsing/longident.cmo \
   parsing/syntaxerr.cmo parsing/parser.cmo \
-  parsing/lexer.cmo parsing/parse.cmo parsing/printast.cmo
+  parsing/lexer.cmo parsing/parse.cmo parsing/printast.cmo \
+  parsing/pprintast.cmo
 
 TYPING=typing/unused_var.cmo typing/ident.cmo typing/path.cmo \
   typing/primitive.cmo typing/types.cmo \
   typing/btype.cmo typing/oprint.cmo \
   typing/subst.cmo typing/predef.cmo \
   typing/datarepr.cmo typing/env.cmo \
-  typing/typedtree.cmo typing/ctype.cmo \
+  typing/typedtree.cmo typing/untypeast.cmo \
+  typing/ctype.cmo \
   typing/printtyp.cmo typing/includeclass.cmo \
   typing/mtype.cmo typing/includecore.cmo \
   typing/includemod.cmo typing/parmatch.cmo \

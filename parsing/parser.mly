@@ -40,6 +40,10 @@ let mkclass d =
   { pcl_desc = d; pcl_loc = symbol_rloc() }
 let mkcty d =
   { pcty_desc = d; pcty_loc = symbol_rloc() }
+let mkctf d =
+  { pctf_desc = d; pctf_loc = symbol_rloc () }
+let mkcf d =
+  { pcf_desc = d; pcf_loc = symbol_rloc () }
 
 let reloc_pat x = { x with ppat_loc = symbol_rloc () };;
 let reloc_exp x = { x with pexp_loc = symbol_rloc () };;
@@ -489,7 +493,8 @@ structure_item:
           [{ppat_desc = Ppat_any}, exp] -> mkstr(Pstr_eval exp)
         | _ -> mkstr(Pstr_value($2, List.rev $3)) }
   | EXTERNAL val_ident COLON core_type EQUAL primitive_declaration
-      { mkstr(Pstr_primitive($2, {pval_type = $4; pval_prim = $6})) }
+    { mkstr(Pstr_primitive($2, {pval_type = $4; pval_prim = $6;
+          pval_loc = symbol_rloc () ;})) }
   | TYPE type_declarations
       { mkstr(Pstr_type(List.rev $2)) }
   | EXCEPTION UIDENT constructor_arguments
@@ -555,9 +560,11 @@ signature:
 ;
 signature_item:
     VAL val_ident COLON core_type
-      { mksig(Psig_value($2, {pval_type = $4; pval_prim = []})) }
+    { mksig(Psig_value($2, {pval_type = $4; pval_prim = []; 
+          pval_loc = symbol_rloc(); })) }
   | EXTERNAL val_ident COLON core_type EQUAL primitive_declaration
-      { mksig(Psig_value($2, {pval_type = $4; pval_prim = $6})) }
+    { mksig(Psig_value($2, {pval_type = $4; pval_prim = $6;
+          pval_loc = symbol_rloc(); })) }
   | TYPE type_declarations
       { mksig(Psig_type(List.rev $2)) }
   | EXCEPTION UIDENT constructor_arguments
@@ -655,7 +662,7 @@ class_simple_expr:
 ;
 class_structure:
     class_self_pattern class_fields
-      { $1, List.rev $2 }
+      { { pcstr_pat = $1; pcstr_fields = List.rev $2 } }
 ;
 class_self_pattern:
     LPAREN pattern RPAREN
@@ -668,21 +675,26 @@ class_self_pattern:
 class_fields:
     /* empty */
       { [] }
-  | class_fields INHERIT override_flag class_expr parent_binder
-      { Pcf_inher ($3, $4, $5) :: $1 }
-  | class_fields VAL virtual_value
-      { Pcf_valvirt $3 :: $1 }
-  | class_fields VAL value
-      { Pcf_val $3 :: $1 }
-  | class_fields virtual_method
-      { Pcf_virt $2 :: $1 }
-  | class_fields concrete_method
-      { Pcf_meth $2 :: $1 }
-  | class_fields CONSTRAINT constrain
-      { Pcf_cstr $3 :: $1 }
-  | class_fields INITIALIZER seq_expr
-      { Pcf_init $3 :: $1 }
+  | class_fields class_field
+      { $2 :: $1 }
 ;
+class_field:
+  | INHERIT override_flag class_expr parent_binder
+      { mkcf (Pcf_inher ($2, $3, $4)) }
+  | VAL virtual_value
+      { mkcf (Pcf_valvirt $2) }
+  | VAL value
+      { mkcf (Pcf_val $2) }
+  | virtual_method
+      { mkcf (Pcf_virt $1) }
+  | concrete_method
+      { mkcf (Pcf_meth $1) }
+  | CONSTRAINT constrain_field
+      { mkcf (Pcf_constr $2) }
+  | INITIALIZER seq_expr
+      { mkcf (Pcf_init $2) }
+;
+
 parent_binder:
     AS LIDENT
           { Some $2 }
@@ -692,30 +704,29 @@ parent_binder:
 virtual_value:
     override_flag MUTABLE VIRTUAL label COLON core_type
       { if $1 = Override then syntax_error ();
-        $4, Mutable, $6, symbol_rloc () }
+        $4, Mutable, $6 }
   | VIRTUAL mutable_flag label COLON core_type
-      { $3, $2, $5, symbol_rloc () }
+      { $3, $2, $5 }
 ;
 value:
     override_flag mutable_flag label EQUAL seq_expr
-      { $3, $2, $1, $5, symbol_rloc () }
+      { $3, $2, $1, $5 }
   | override_flag mutable_flag label type_constraint EQUAL seq_expr
-      { $3, $2, $1, (let (t, t') = $4 in ghexp(Pexp_constraint($6, t, t'))),
-        symbol_rloc () }
+      { $3, $2, $1, (let (t, t') = $4 in ghexp(Pexp_constraint($6, t, t'))) }
 ;
 virtual_method:
     METHOD override_flag PRIVATE VIRTUAL label COLON poly_type
       { if $2 = Override then syntax_error ();
-        $5, Private, $7, symbol_rloc () }
+        $5, Private, $7 }
   | METHOD override_flag VIRTUAL private_flag label COLON poly_type
       { if $2 = Override then syntax_error ();
-        $5, $4, $7, symbol_rloc () }
+        $5, $4, $7 }
 ;
 concrete_method :
     METHOD override_flag private_flag label strict_binding
-      { $4, $3, $2, ghexp(Pexp_poly ($5, None)), symbol_rloc () }
+      { $4, $3, $2, ghexp(Pexp_poly ($5, None)) }
   | METHOD override_flag private_flag label COLON poly_type EQUAL seq_expr
-      { $4, $3, $2, ghexp(Pexp_poly($8,Some $6)), symbol_rloc () }
+      { $4, $3, $2, ghexp(Pexp_poly($8,Some $6)) }
 ;
 
 /* Class types */
@@ -752,7 +763,8 @@ class_signature:
 ;
 class_sig_body:
     class_self_type class_sig_fields
-      { $1, List.rev $2 }
+    { { pcsig_self = $1; pcsig_fields = List.rev $2;
+      pcsig_loc = symbol_rloc(); } }
 ;
 class_self_type:
     LPAREN core_type RPAREN
@@ -760,34 +772,43 @@ class_self_type:
   | /* empty */
       { mktyp(Ptyp_any) }
 ;
+inherited_class_signature:
+   class_signature     { mkctf (Pctf_inher $1) }
+;
 class_sig_fields:
     /* empty */                                 { [] }
-  | class_sig_fields INHERIT class_signature    { Pctf_inher $3 :: $1 }
-  | class_sig_fields VAL value_type             { Pctf_val   $3 :: $1 }
-  | class_sig_fields virtual_method_type        { Pctf_virt  $2 :: $1 }
-  | class_sig_fields method_type                { Pctf_meth  $2 :: $1 }
-  | class_sig_fields CONSTRAINT constrain       { Pctf_cstr  $3 :: $1 }
+| class_sig_fields class_sig_field     { $2 :: $1 }
+;
+class_sig_field:
+    INHERIT class_signature       { mkctf (Pctf_inher $2) }
+  | VAL value_type              { mkctf (Pctf_val $2) }
+  | virtual_method_type         { mkctf (Pctf_virt $1) }
+  | method_type                 { mkctf (Pctf_meth $1) }
+  | CONSTRAINT constrain_field  { mkctf (Pctf_cstr $2) }
 ;
 value_type:
     VIRTUAL mutable_flag label COLON core_type
-      { $3, $2, Virtual, $5, symbol_rloc () }
+      { ($3, $2, Virtual, $5) }
   | MUTABLE virtual_flag label COLON core_type
-      { $3, Mutable, $2, $5, symbol_rloc () }
+      { ($3, Mutable, $2, $5) }
   | label COLON core_type
-      { $1, Immutable, Concrete, $3, symbol_rloc () }
+      { ($1, Immutable, Concrete, $3) }
 ;
 method_type:
     METHOD private_flag label COLON poly_type
-      { $3, $2, $5, symbol_rloc () }
+      { ($3, $2, $5) }
 ;
 virtual_method_type:
     METHOD PRIVATE VIRTUAL label COLON poly_type
-      { $4, Private, $6, symbol_rloc () }
+      { ($4, Private, $6) }
   | METHOD VIRTUAL private_flag label COLON poly_type
-      { $4, $3, $6, symbol_rloc () }
+      { ($4, $3, $6) }
+;
+constrain_field:
+        core_type EQUAL core_type         { ($1, $3) }
 ;
 constrain:
-        core_type EQUAL core_type          { $1, $3, symbol_rloc () }
+        core_type EQUAL core_type          { ($1, $3, symbol_rloc ()) }
 ;
 class_descriptions:
     class_descriptions AND class_description    { $3 :: $1 }

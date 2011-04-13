@@ -108,13 +108,14 @@ val report_error: formatter -> error -> unit
 (* Forward declaration, to be filled in by Typemod.type_module *)
 val type_module: (Env.t -> Parsetree.module_expr -> Typedtree.module_expr) ref
 (* Forward declaration, to be filled in by Typemod.type_open *)
-val type_open: (Env.t -> Location.t -> Longident.t -> Env.t) ref
+val type_open: (Env.t -> Location.t -> Longident.t -> Path.t * Env.t) ref
 (* Forward declaration, to be filled in by Typeclass.class_structure *)
 val type_object:
   (Env.t -> Location.t -> Parsetree.class_structure ->
-   Typedtree.class_structure * class_signature * string list) ref
+   Typedtree.class_structure * Types.class_signature * string list) ref
 val type_package:
   (Env.t -> Parsetree.module_expr -> Path.t -> string list -> type_expr list ->
    Typedtree.module_expr * type_expr list) ref
 
-val create_package_type: Location.t -> Env.t -> Parsetree.package_type -> type_expr
+val create_package_type: Location.t -> Env.t -> Parsetree.package_type -> 
+  Path.t * (string * Typedtree.core_type) list * Types.type_expr

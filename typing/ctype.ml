@@ -305,18 +305,18 @@ let hide_private_methods ty =
 
 let rec signature_of_class_type =
   function
-    Tcty_constr (_, _, cty) -> signature_of_class_type cty
-  | Tcty_signature sign     -> sign
-  | Tcty_fun (_, ty, cty)   -> signature_of_class_type cty
+    Cty_constr (_, _, cty) -> signature_of_class_type cty
+  | Cty_signature sign     -> sign
+  | Cty_fun (_, ty, cty)   -> signature_of_class_type cty
 
 let self_type cty =
   repr (signature_of_class_type cty).cty_self
 
 let rec class_type_arity =
   function
-    Tcty_constr (_, _, cty) ->  class_type_arity cty
-  | Tcty_signature _        ->  0
-  | Tcty_fun (_, _, cty)    ->  1 + class_type_arity cty
+    Cty_constr (_, _, cty) ->  class_type_arity cty
+  | Cty_signature _        ->  0
+  | Cty_fun (_, _, cty)    ->  1 + class_type_arity cty
 
 
                   (*******************************************)
@@ -869,18 +869,18 @@ let instance_parameterized_type_2 sch_args sch_lst sch =
 let instance_class params cty =
   let rec copy_class_type =
     function
-      Tcty_constr (path, tyl, cty) ->
-        Tcty_constr (path, List.map copy tyl, copy_class_type cty)
-    | Tcty_signature sign ->
-        Tcty_signature
+      Cty_constr (path, tyl, cty) ->
+        Cty_constr (path, List.map copy tyl, copy_class_type cty)
+    | Cty_signature sign ->
+        Cty_signature
           {cty_self = copy sign.cty_self;
            cty_vars =
              Vars.map (function (m, v, ty) -> (m, v, copy ty)) sign.cty_vars;
            cty_concr = sign.cty_concr;
            cty_inher =
              List.map (fun (p,tl) -> (p, List.map copy tl)) sign.cty_inher}
-    | Tcty_fun (l, ty, cty) ->
-        Tcty_fun (l, copy ty, copy_class_type cty)
+    | Cty_fun (l, ty, cty) ->
+        Cty_fun (l, copy ty, copy_class_type cty)
   in
   let params' = List.map copy params in
   let cty' = copy_class_type cty in
@@ -2460,16 +2460,16 @@ exception Failure of class_match_failure list
 let rec moregen_clty trace type_pairs env cty1 cty2 =
   try
     match cty1, cty2 with
-      Tcty_constr (_, _, cty1), _ ->
+      Cty_constr (_, _, cty1), _ ->
         moregen_clty true type_pairs env cty1 cty2
-    | _, Tcty_constr (_, _, cty2) ->
+    | _, Cty_constr (_, _, cty2) ->
         moregen_clty true type_pairs env cty1 cty2
-    | Tcty_fun (l1, ty1, cty1'), Tcty_fun (l2, ty2, cty2') when l1 = l2 ->
+    | Cty_fun (l1, ty1, cty1'), Cty_fun (l2, ty2, cty2') when l1 = l2 ->
         begin try moregen true type_pairs env ty1 ty2 with Unify trace ->
           raise (Failure [CM_Parameter_mismatch (expand_trace env trace)])
         end;
         moregen_clty false type_pairs env cty1' cty2'
-    | Tcty_signature sign1, Tcty_signature sign2 ->
+    | Cty_signature sign1, Cty_signature sign2 ->
         let ty1 = object_fields (repr sign1.cty_self) in
         let ty2 = object_fields (repr sign2.cty_self) in
         let (fields1, rest1) = flatten_fields ty1
@@ -2593,18 +2593,18 @@ let match_class_types ?(trace=true) env pat_sch subj_sch =
 let rec equal_clty trace type_pairs subst env cty1 cty2 =
   try
     match cty1, cty2 with
-      Tcty_constr (_, _, cty1), Tcty_constr (_, _, cty2) ->
+      Cty_constr (_, _, cty1), Cty_constr (_, _, cty2) ->
         equal_clty true type_pairs subst env cty1 cty2
-    | Tcty_constr (_, _, cty1), _ ->
+    | Cty_constr (_, _, cty1), _ ->
         equal_clty true type_pairs subst env cty1 cty2
-    | _, Tcty_constr (_, _, cty2) ->
+    | _, Cty_constr (_, _, cty2) ->
         equal_clty true type_pairs subst env cty1 cty2
-    | Tcty_fun (l1, ty1, cty1'), Tcty_fun (l2, ty2, cty2') when l1 = l2 ->
+    | Cty_fun (l1, ty1, cty1'), Cty_fun (l2, ty2, cty2') when l1 = l2 ->
         begin try eqtype true type_pairs subst env ty1 ty2 with Unify trace ->
           raise (Failure [CM_Parameter_mismatch (expand_trace env trace)])
         end;
         equal_clty false type_pairs subst env cty1' cty2'
-    | Tcty_signature sign1, Tcty_signature sign2 ->
+    | Cty_signature sign1, Cty_signature sign2 ->
         let ty1 = object_fields (repr sign1.cty_self) in
         let ty2 = object_fields (repr sign2.cty_self) in
         let (fields1, rest1) = flatten_fields ty1
@@ -2721,10 +2721,10 @@ let match_class_declarations env patt_params patt_type subj_params subj_type =
           patt_params subj_params;
         (* old code: equal_clty false type_pairs subst env patt_type subj_type; *)
         equal_clty false type_pairs subst env
-          (Tcty_signature sign1) (Tcty_signature sign2);
+          (Cty_signature sign1) (Cty_signature sign2);
         (* Use moregeneral for class parameters, need to recheck everything to
            keeps relationships (PR#4824) *)
-        let clty_params = List.fold_right (fun ty cty -> Tcty_fun ("*",ty,cty)) in
+        let clty_params = List.fold_right (fun ty cty -> Cty_fun ("*",ty,cty)) in
         match_class_types ~trace:false env
           (clty_params patt_params patt_type) (clty_params subj_params subj_type)
       with
@@ -3435,15 +3435,15 @@ let nondep_class_signature env id sign =
 
 let rec nondep_class_type env id =
   function
-    Tcty_constr (p, _, cty) when Path.isfree id p ->
+    Cty_constr (p, _, cty) when Path.isfree id p ->
       nondep_class_type env id cty
-  | Tcty_constr (p, tyl, cty) ->
-      Tcty_constr (p, List.map (nondep_type_rec env id) tyl,
+  | Cty_constr (p, tyl, cty) ->
+      Cty_constr (p, List.map (nondep_type_rec env id) tyl,
                    nondep_class_type env id cty)
-  | Tcty_signature sign ->
-      Tcty_signature (nondep_class_signature env id sign)
-  | Tcty_fun (l, ty, cty) ->
-      Tcty_fun (l, nondep_type_rec env id ty, nondep_class_type env id cty)
+  | Cty_signature sign ->
+      Cty_signature (nondep_class_signature env id sign)
+  | Cty_fun (l, ty, cty) ->
+      Cty_fun (l, nondep_type_rec env id ty, nondep_class_type env id cty)
 
 let nondep_class_declaration env id decl =
   assert (not (Path.isfree id decl.cty_path));

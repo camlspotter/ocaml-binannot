@@ -153,6 +153,7 @@ OCAMLCMOFILES=$(OCAMLSRCDIR)/parsing/printast.cmo \
 	$(OCAMLSRCDIR)/parsing/parser.cmo \
 	$(OCAMLSRCDIR)/parsing/lexer.cmo \
 	$(OCAMLSRCDIR)/parsing/parse.cmo \
+	$(OCAMLSRCDIR)/parsing/pprintast.cmo \
 	$(OCAMLSRCDIR)/typing/types.cmo \
 	$(OCAMLSRCDIR)/typing/path.cmo \
 	$(OCAMLSRCDIR)/typing/btype.cmo \
@@ -167,6 +168,7 @@ OCAMLCMOFILES=$(OCAMLSRCDIR)/parsing/printast.cmo \
 	$(OCAMLSRCDIR)/typing/includecore.cmo \
 	$(OCAMLSRCDIR)/typing/typetexp.cmo \
 	$(OCAMLSRCDIR)/typing/typedtree.cmo \
+	$(OCAMLSRCDIR)/typing/untypeast.cmo \
 	$(OCAMLSRCDIR)/typing/parmatch.cmo \
 	$(OCAMLSRCDIR)/typing/stypes.cmo \
 	$(OCAMLSRCDIR)/typing/typecore.cmo \

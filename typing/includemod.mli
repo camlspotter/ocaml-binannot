@@ -15,12 +15,11 @@
 (* Inclusion checks for the module language *)
 
 open Types
-open Typedtree
 open Format
 
-val modtypes: Env.t -> module_type -> module_type -> module_coercion
-val signatures: Env.t -> signature -> signature -> module_coercion
-val compunit: string -> signature -> string -> signature -> module_coercion
+val modtypes: Env.t -> module_type -> module_type -> Typedtree.module_coercion
+val signatures: Env.t -> signature -> signature -> Typedtree.module_coercion
+val compunit: string -> signature -> string -> signature -> Typedtree.module_coercion
 val type_declarations:
       Env.t -> Ident.t -> type_declaration -> type_declaration -> unit
 
@@ -36,7 +35,7 @@ type error =
   | Modtype_permutation
   | Interface_mismatch of string * string
   | Class_type_declarations of
-      Ident.t * cltype_declaration * cltype_declaration *
+      Ident.t * class_type_declaration * class_type_declaration *
       Ctype.class_match_failure list
   | Class_declarations of
       Ident.t * class_declaration * class_declaration *

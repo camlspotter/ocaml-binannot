@@ -124,7 +124,9 @@ and expression_desc =
 
 and value_description =
   { pval_type: core_type;
-    pval_prim: string list }
+    pval_prim: string list;
+    pval_loc : Location.t
+    }
 
 (* Type declarations *)
 
@@ -156,14 +158,23 @@ and class_type_desc =
   | Pcty_signature of class_signature
   | Pcty_fun of label * core_type * class_type
 
-and class_signature = core_type * class_type_field list
+and class_signature = {
+    pcsig_self : core_type;
+    pcsig_fields : class_type_field list;
+    pcsig_loc : Location.t;
+  }
 
-and class_type_field =
+and class_type_field = {
+    pctf_desc : class_type_field_desc;
+    pctf_loc : Location.t;
+  }
+
+and class_type_field_desc =
     Pctf_inher of class_type
-  | Pctf_val of (string * mutable_flag * virtual_flag * core_type * Location.t)
-  | Pctf_virt  of (string * private_flag * core_type * Location.t)
-  | Pctf_meth  of (string * private_flag * core_type * Location.t)
-  | Pctf_cstr  of (core_type * core_type * Location.t)
+  | Pctf_val of (string * mutable_flag * virtual_flag * core_type)
+  | Pctf_virt  of (string * private_flag * core_type)
+  | Pctf_meth  of (string * private_flag * core_type)
+  | Pctf_cstr  of (core_type * core_type)
 
 and class_description = class_type class_infos
 
@@ -183,16 +194,24 @@ and class_expr_desc =
   | Pcl_let of rec_flag * (pattern * expression) list * class_expr
   | Pcl_constraint of class_expr * class_type
 
-and class_structure = pattern * class_field list
+and class_structure = {
+    pcstr_pat : pattern;
+    pcstr_fields :  class_field list;
+  }
 
-and class_field =
+and class_field = {
+    pcf_desc : class_field_desc;
+    pcf_loc : Location.t;
+  }
+
+and class_field_desc =
     Pcf_inher of override_flag * class_expr * string option
-  | Pcf_valvirt of (string * mutable_flag * core_type * Location.t)
-  | Pcf_val of (string * mutable_flag * override_flag * expression * Location.t)
-  | Pcf_virt  of (string * private_flag * core_type * Location.t)
-  | Pcf_meth of (string * private_flag *override_flag * expression * Location.t)
-  | Pcf_cstr  of (core_type * core_type * Location.t)
-  | Pcf_let   of rec_flag * (pattern * expression) list * Location.t
+  | Pcf_valvirt of (string * mutable_flag * core_type)
+  | Pcf_val of (string * mutable_flag * override_flag * expression)
+  | Pcf_virt  of (string * private_flag * core_type)
+  | Pcf_meth of (string * private_flag *override_flag * expression)
+  | Pcf_constr  of (core_type * core_type)
+  | Pcf_let   of rec_flag * (pattern * expression) list
   | Pcf_init  of expression
 
 and class_declaration = class_expr class_infos

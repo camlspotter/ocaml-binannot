@@ -106,7 +106,7 @@ let f txt =
     let psign = parse_pp text ~ext:".mli"
         ~parse:Parse.interface ~wrap:(fun x -> x) in
     txt.psignature <- psign;
-    txt.signature <- Typemod.transl_signature !env psign
+    txt.signature <- (Typemod.transl_signature !env psign).Typedtree.sig_type
 
     else (* others are interpreted as .ml *)
 
@@ -116,7 +116,7 @@ let f txt =
     begin function
       Ptop_def pstr ->
         let str, sign, env' = Typemod.type_structure !env pstr Location.none in
-        txt.structure <- txt.structure @ str;
+        txt.structure <- txt.structure @ str.Typedtree.str_items;
         txt.signature <- txt.signature @ sign;
         env := env'
     | Ptop_dir _ -> ()

@@ -47,19 +47,19 @@ module Signature_search =
 
     let add_to_hash table signat =
       match signat with
-        Types.Tsig_value (ident, _) ->
+        Types.Sig_value (ident, _) ->
           Hashtbl.add table (V (Name.from_ident ident)) signat
-      | Types.Tsig_exception (ident, _) ->
+      | Types.Sig_exception (ident, _) ->
           Hashtbl.add table (E (Name.from_ident ident)) signat
-      | Types.Tsig_type (ident, _, _) ->
+      | Types.Sig_type (ident, _, _) ->
           Hashtbl.add table (T (Name.from_ident ident)) signat
-      | Types.Tsig_class (ident, _, _) ->
+      | Types.Sig_class (ident, _, _) ->
           Hashtbl.add table (C (Name.from_ident ident)) signat
-      | Types.Tsig_cltype (ident, _, _) ->
+      | Types.Sig_class_type (ident, _, _) ->
           Hashtbl.add table (CT (Name.from_ident ident)) signat
-      | Types.Tsig_module (ident, _, _) ->
+      | Types.Sig_module (ident, _, _) ->
           Hashtbl.add table (M (Name.from_ident ident)) signat
-      | Types.Tsig_modtype (ident,_) ->
+      | Types.Sig_modtype (ident,_) ->
           Hashtbl.add table (MT (Name.from_ident ident)) signat
 
     let table signat =
@@ -69,40 +69,40 @@ module Signature_search =
 
     let search_value table name =
       match Hashtbl.find table (V name) with
-      | (Types.Tsig_value (_, val_desc)) ->  val_desc.Types.val_type
+      | (Types.Sig_value (_, val_desc)) ->  val_desc.Types.val_type
       | _ -> assert false
 
     let search_exception table name =
       match Hashtbl.find table (E name) with
-      | (Types.Tsig_exception (_, type_expr_list)) ->
+      | (Types.Sig_exception (_, type_expr_list)) ->
           type_expr_list
       | _ -> assert false
 
     let search_type table name =
       match Hashtbl.find table (T name) with
-      | (Types.Tsig_type (_, type_decl, _)) -> type_decl
+      | (Types.Sig_type (_, type_decl, _)) -> type_decl
       | _ -> assert false
 
     let search_class table name =
       match Hashtbl.find table (C name) with
-      | (Types.Tsig_class (_, class_decl, _)) -> class_decl
+      | (Types.Sig_class (_, class_decl, _)) -> class_decl
       | _ -> assert false
 
     let search_class_type table name =
       match Hashtbl.find table (CT name) with
-      | (Types.Tsig_cltype (_, cltype_decl, _)) -> cltype_decl
+      | (Types.Sig_class_type (_, cltype_decl, _)) -> cltype_decl
       | _ -> assert false
 
     let search_module table name =
       match Hashtbl.find table (M name) with
-      | (Types.Tsig_module (ident, module_type, _)) -> module_type
+      | (Types.Sig_module (ident, module_type, _)) -> module_type
       | _ -> assert false
 
     let search_module_type table name =
       match Hashtbl.find table (MT name) with
-      | (Types.Tsig_modtype (_, Types.Tmodtype_manifest module_type)) ->
+      | (Types.Sig_modtype (_, Types.Modtype_manifest module_type)) ->
           Some module_type
-      | (Types.Tsig_modtype (_, Types.Tmodtype_abstract)) ->
+      | (Types.Sig_modtype (_, Types.Modtype_abstract)) ->
           None
       | _ -> assert false
 
@@ -262,12 +262,13 @@ module Analyser =
       let get_pos_limit2 q =
         match q with
           [] -> pos_limit
-        | ele2 :: _ ->
-            match ele2 with
-              Parsetree.Pctf_val (_, _, _, _, loc)
-            | Parsetree.Pctf_virt (_, _, _, loc)
-            | Parsetree.Pctf_meth (_, _, _, loc)
-            | Parsetree.Pctf_cstr (_, _, loc) -> loc.Location.loc_start.Lexing.pos_cnum
+          | ele2 :: _ ->
+              let loc = ele2.Parsetree.pctf_loc in
+            match ele2.Parsetree.pctf_desc with
+              Parsetree.Pctf_val (_, _, _, _)
+            | Parsetree.Pctf_virt (_, _, _)
+            | Parsetree.Pctf_meth (_, _, _)
+            | Parsetree.Pctf_cstr (_, _) -> loc.Location.loc_start.Lexing.pos_cnum
             | Parsetree.Pctf_inher class_type ->
                 class_type.Parsetree.pcty_loc.Location.loc_start.Lexing.pos_cnum
       in
@@ -325,7 +326,11 @@ module Analyser =
             in
             ([], ele_comments)
 
-        | Parsetree.Pctf_val (name, mutable_flag, virtual_flag, _, loc) :: q ->
+          | item :: q ->
+              let loc = item.Parsetree.pctf_loc in
+              match item.Parsetree.pctf_desc with
+              
+        | Parsetree.Pctf_val (name, mutable_flag, virtual_flag, _) ->
             (* of (string * mutable_flag * core_type option * Location.t)*)
             let (comment_opt, eles_comments) = get_comments_in_class last_pos loc.Location.loc_start.Lexing.pos_cnum in
             let complete_name = Name.concat current_class_name name in
@@ -362,7 +367,7 @@ module Analyser =
             let (inher_l, eles) = f (pos_end + maybe_more) q in
             (inher_l, eles_comments @ ((Class_attribute att) :: eles))
 
-        | Parsetree.Pctf_virt (name, private_flag, _, loc) :: q ->
+        | Parsetree.Pctf_virt (name, private_flag, _) ->
             (* of (string * private_flag * core_type * Location.t) *)
             let (comment_opt, eles_comments) = get_comments_in_class last_pos loc.Location.loc_start.Lexing.pos_cnum in
             let (met, maybe_more) = get_method name comment_opt private_flag loc q in
@@ -370,21 +375,21 @@ module Analyser =
             let (inher_l, eles) = f (loc.Location.loc_end.Lexing.pos_cnum + maybe_more) q in
             (inher_l, eles_comments @ ((Class_method met2) :: eles))
 
-        | Parsetree.Pctf_meth (name, private_flag, _, loc) :: q ->
+        | Parsetree.Pctf_meth (name, private_flag, _) ->
             (* of (string * private_flag * core_type * Location.t) *)
             let (comment_opt, eles_comments) = get_comments_in_class last_pos loc.Location.loc_start.Lexing.pos_cnum in
             let (met, maybe_more) = get_method name comment_opt private_flag loc q in
             let (inher_l, eles) = f (loc.Location.loc_end.Lexing.pos_cnum + maybe_more) q in
             (inher_l, eles_comments @ ((Class_method met) :: eles))
 
-        | (Parsetree.Pctf_cstr (_, _, loc)) :: q ->
+        | (Parsetree.Pctf_cstr (_, _)) ->
             (* of (core_type * core_type * Location.t) *)
             (* A VOIR : cela correspond aux contraintes, non ? on ne les garde pas pour l'instant *)
             let (comment_opt, eles_comments) = get_comments_in_class last_pos loc.Location.loc_start.Lexing.pos_cnum in
             let (inher_l, eles) = f loc.Location.loc_end.Lexing.pos_cnum q in
             (inher_l, eles_comments @ eles)
 
-        | Parsetree.Pctf_inher class_type :: q ->
+        | Parsetree.Pctf_inher class_type ->
             let loc = class_type.Parsetree.pcty_loc in
             let (comment_opt, eles_comments) =
               get_comments_in_class last_pos loc.Location.loc_start.Lexing.pos_cnum
@@ -414,7 +419,7 @@ module Analyser =
 
               | Parsetree.Pcty_signature _
               | Parsetree.Pcty_fun _ ->
-                  (* we don't have a name for the class signature, so we call it "object ... end"  *)
+                    (* we don't have a name for the class signature, so we call it "object ... end"  *)
                   {
                     ic_name = Odoc_messages.object_end ;
                     ic_class = None ;
@@ -691,8 +696,8 @@ module Analyser =
             new_module.m_info <- merge_infos new_module.m_info info_after_opt ;
             let new_env = Odoc_env.add_module env new_module.m_name in
             let new_env2 =
-              match new_module.m_type with (* A VOIR : cela peut-il être Tmty_ident ? dans ce cas, on aurait pas la signature *)
-                Types.Tmty_signature s -> Odoc_env.add_signature new_env new_module.m_name ~rel: (Name.simple new_module.m_name) s
+              match new_module.m_type with (* A VOIR : cela peut-il être Mty_ident ? dans ce cas, on aurait pas la signature *)
+                Types.Mty_signature s -> Odoc_env.add_signature new_env new_module.m_name ~rel: (Name.simple new_module.m_name) s
               | _ -> new_env
             in
             (maybe_more, new_env2, [ Element_module new_module ])
@@ -711,11 +716,11 @@ module Analyser =
                       raise (Failure (Odoc_messages.module_not_found current_module_name name))
                   in
                   match sig_module_type with
-                    (* A VOIR : cela peut-il être Tmty_ident ? dans ce cas, on aurait pas la signature *)
-                    Types.Tmty_signature s ->
+                    (* A VOIR : cela peut-il être Mty_ident ? dans ce cas, on aurait pas la signature *)
+                    Types.Mty_signature s ->
                       Odoc_env.add_signature e complete_name ~rel: name s
                   | _ ->
-                      print_DEBUG "not a Tmty_signature";
+                      print_DEBUG "not a Mty_signature";
                       e
                 )
                 env
@@ -826,8 +831,8 @@ module Analyser =
             mt.mt_info <- merge_infos mt.mt_info info_after_opt ;
             let new_env = Odoc_env.add_module_type env mt.mt_name in
             let new_env2 =
-              match sig_mtype with (* A VOIR : cela peut-il être Tmty_ident ? dans ce cas, on aurait pas la signature *)
-                Some (Types.Tmty_signature s) -> Odoc_env.add_signature new_env mt.mt_name ~rel: (Name.simple mt.mt_name) s
+              match sig_mtype with (* A VOIR : cela peut-il être Mty_ident ? dans ce cas, on aurait pas la signature *)
+                Some (Types.Mty_signature s) -> Odoc_env.add_signature new_env mt.mt_name ~rel: (Name.simple mt.mt_name) s
               | _ -> new_env
             in
             (maybe_more, new_env2, [ Element_module_type mt ])
@@ -1013,7 +1018,7 @@ module Analyser =
         Parsetree.Pmty_ident longident ->
           let name =
             match sig_module_type with
-              Types.Tmty_ident path -> Name.from_path path
+              Types.Mty_ident path -> Name.from_path path
             | _ -> Name.from_longident longident
               (* A VOIR cela arrive quand on fait module type F : functor ... -> Toto, Toto n'est pas un ident mais une structure *)
           in
@@ -1024,13 +1029,13 @@ module Analyser =
           (
            (* we must have a signature in the module type *)
            match sig_module_type with
-             Types.Tmty_signature signat ->
+             Types.Mty_signature signat ->
                let pos_start = module_type.Parsetree.pmty_loc.Location.loc_start.Lexing.pos_cnum in
                let pos_end = module_type.Parsetree.pmty_loc.Location.loc_end.Lexing.pos_cnum in
                let elements = analyse_parsetree env signat current_module_name pos_start pos_end ast in
                Module_type_struct elements
            | _ ->
-               raise (Failure "Parsetree.Pmty_signature signature but not Types.Tmty_signature signat")
+               raise (Failure "Parsetree.Pmty_signature signature but not Types.Mty_signature signat")
           )
 
       | Parsetree.Pmty_functor (_,pmodule_type2, module_type2) ->
@@ -1040,7 +1045,7 @@ module Analyser =
            let mp_type_code = get_string_of_file loc_start loc_end in
            print_DEBUG (Printf.sprintf "mp_type_code=%s" mp_type_code);
            match sig_module_type with
-             Types.Tmty_functor (ident, param_module_type, body_module_type) ->
+             Types.Mty_functor (ident, param_module_type, body_module_type) ->
                let mp_kind = analyse_module_type_kind env
                    current_module_name pmodule_type2 param_module_type
                in
@@ -1061,7 +1066,7 @@ module Analyser =
 
            | _ ->
                (* if we're here something's wrong *)
-               raise (Failure "Parsetree.Pmty_functor _ but not Types.Tmty_functor _")
+               raise (Failure "Parsetree.Pmty_functor _ but not Types.Mty_functor _")
           )
 
       | Parsetree.Pmty_with (module_type2, _) ->
@@ -1090,7 +1095,7 @@ module Analyser =
       | Parsetree.Pmty_signature signature ->
           (
            match sig_module_type with
-             Types.Tmty_signature signat ->
+             Types.Mty_signature signat ->
                Module_struct
                  (analyse_parsetree
                     env
@@ -1102,12 +1107,12 @@ module Analyser =
                  )
            | _ ->
                (* if we're here something's wrong *)
-               raise (Failure "Parsetree.Pmty_signature signature but not Types.Tmty_signature signat")
+               raise (Failure "Parsetree.Pmty_signature signature but not Types.Mty_signature signat")
           )
       | Parsetree.Pmty_functor (_,pmodule_type2,module_type2) (* of string * module_type * module_type *) ->
           (
            match sig_module_type with
-             Types.Tmty_functor (ident, param_module_type, body_module_type) ->
+             Types.Mty_functor (ident, param_module_type, body_module_type) ->
                let loc_start = pmodule_type2.Parsetree.pmty_loc.Location.loc_start.Lexing.pos_cnum in
                let loc_end = pmodule_type2.Parsetree.pmty_loc.Location.loc_end.Lexing.pos_cnum in
                let mp_type_code = get_string_of_file loc_start loc_end in
@@ -1132,7 +1137,7 @@ module Analyser =
 
            | _ ->
                (* if we're here something's wrong *)
-               raise (Failure "Parsetree.Pmty_functor _ but not Types.Tmty_functor _")
+               raise (Failure "Parsetree.Pmty_functor _ but not Types.Mty_functor _")
           )
       | Parsetree.Pmty_with (module_type2, _) ->
           (*of module_type * (Longident.t * with_constraint) list*)
@@ -1154,8 +1159,8 @@ module Analyser =
     and analyse_class_kind env current_class_name last_pos parse_class_type sig_class_type =
       match parse_class_type.Parsetree.pcty_desc, sig_class_type with
         (Parsetree.Pcty_constr (_, _) (*of Longident.t * core_type list *),
-         Types.Tcty_constr (p, typ_list, _) (*of Path.t * type_expr list * class_type*)) ->
-          print_DEBUG "Tcty_constr _";
+         Types.Cty_constr (p, typ_list, _) (*of Path.t * type_expr list * class_type*)) ->
+          print_DEBUG "Cty_constr _";
            let path_name = Name.from_path p in
            let name = Odoc_env.full_class_or_class_type_name env path_name in
            let k =
@@ -1168,7 +1173,7 @@ module Analyser =
            in
            ([], k)
 
-      | (Parsetree.Pcty_signature (_, class_type_field_list), Types.Tcty_signature class_signature) ->
+      | (Parsetree.Pcty_signature { Parsetree.pcsig_fields = class_type_field_list }, Types.Cty_signature class_signature) ->
           (* we get the elements of the class in class_type_field_list *)
           let (inher_l, ele) = analyse_class_elements env current_class_name
               last_pos
@@ -1178,7 +1183,7 @@ module Analyser =
           in
           ([], Class_structure (inher_l, ele))
 
-      | (Parsetree.Pcty_fun (parse_label, _, pclass_type), Types.Tcty_fun (label, type_expr, class_type)) ->
+      | (Parsetree.Pcty_fun (parse_label, _, pclass_type), Types.Cty_fun (label, type_expr, class_type)) ->
           (* label = string. Dans les signatures, pas de nom de paramètres à l'intérieur des tuples *)
           (* si label = "", pas de label. ici on a l'information pour savoir si on a un label explicite. *)
           if parse_label = label then
@@ -1205,8 +1210,8 @@ module Analyser =
     and analyse_class_type_kind env current_class_name last_pos parse_class_type sig_class_type =
       match parse_class_type.Parsetree.pcty_desc, sig_class_type with
         (Parsetree.Pcty_constr (_, _) (*of Longident.t * core_type list *),
-         Types.Tcty_constr (p, typ_list, _) (*of Path.t * type_expr list * class_type*)) ->
-          print_DEBUG "Tcty_constr _";
+         Types.Cty_constr (p, typ_list, _) (*of Path.t * type_expr list * class_type*)) ->
+          print_DEBUG "Cty_constr _";
            let k =
              Class_type
                {
@@ -1217,7 +1222,9 @@ module Analyser =
            in
            k
 
-      | (Parsetree.Pcty_signature (_, class_type_field_list), Types.Tcty_signature class_signature) ->
+        | (Parsetree.Pcty_signature { 
+              Parsetree.pcsig_fields = class_type_field_list;
+              }, Types.Cty_signature class_signature) ->
           (* we get the elements of the class in class_type_field_list *)
           let (inher_l, ele) = analyse_class_elements env current_class_name
               last_pos
@@ -1227,11 +1234,11 @@ module Analyser =
           in
           Class_signature (inher_l, ele)
 
-      | (Parsetree.Pcty_fun (parse_label, _, pclass_type), Types.Tcty_fun (label, type_expr, class_type)) ->
-          raise (Failure "analyse_class_type_kind : Parsetree.Pcty_fun (...) with Types.Tcty_fun (...)")
+      | (Parsetree.Pcty_fun (parse_label, _, pclass_type), Types.Cty_fun (label, type_expr, class_type)) ->
+          raise (Failure "analyse_class_type_kind : Parsetree.Pcty_fun (...) with Types.Cty_fun (...)")
 (*
       | (Parsetree.Pcty_constr (longident, _) (*of Longident.t * core_type list *),
-         Types.Tcty_signature class_signature) ->
+         Types.Cty_signature class_signature) ->
            (* A VOIR : c'est pour le cas des contraintes de classes :
               class type cons = object
                 method m : int
@@ -1290,7 +1297,7 @@ module Analyser =
       in
       {
         m_name = mod_name ;
-        m_type = Types.Tmty_signature signat ;
+        m_type = Types.Mty_signature signat ;
         m_info = info_opt ;
         m_is_interface = true ;
         m_file = !file_name ;

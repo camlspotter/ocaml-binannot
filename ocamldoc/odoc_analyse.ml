@@ -252,7 +252,7 @@ let process_file ppf sourcefile =
        try
          let (ast, signat, input_file) = process_interface_file ppf file in
          let file_module = Sig_analyser.analyse_signature file
-             !Location.input_name ast signat
+             !Location.input_name ast signat.sig_type
          in
 
          file_module.Odoc_module.m_top_deps <- Odoc_dep.intf_dependencies ast ;
@@ -289,7 +289,7 @@ let process_file ppf sourcefile =
         let m =
           {
             Odoc_module.m_name = mod_name ;
-            Odoc_module.m_type = Types.Tmty_signature [] ;
+            Odoc_module.m_type = Types.Mty_signature [] ;
             Odoc_module.m_info = None ;
             Odoc_module.m_is_interface = true ;
             Odoc_module.m_file = file ;

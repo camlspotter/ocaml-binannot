@@ -38,7 +38,14 @@ OTHERS=array.cmo list.cmo char.cmo string.cmo sys.cmo \
   filename.cmo complex.cmo \
   arrayLabels.cmo listLabels.cmo stringLabels.cmo moreLabels.cmo stdLabels.cmo
 
+
 all: stdlib.cma std_exit.cmo camlheader camlheader_ur
+
+GENS=$(OBJS:.cmo=_typ2src.cmo)
+gen: $(GENS)
+
+AST=$(OBJS:.cmo=_ast2src.cmo)
+ast: $(AST)
 
 install:
 	cp stdlib.cma std_exit.cmo *.cmi *.mli *.ml camlheader camlheader_ur $(LIBDIR)

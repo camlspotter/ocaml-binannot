@@ -15,7 +15,6 @@
 (* Inclusion checks for the core language *)
 
 open Types
-open Typedtree
 
 exception Dont_match
 
@@ -34,7 +33,7 @@ type type_mismatch =
   | Record_representation of bool
 
 val value_descriptions:
-    Env.t -> value_description -> value_description -> module_coercion
+    Env.t -> value_description -> value_description -> Typedtree.module_coercion
 val type_declarations:
     Env.t -> Ident.t ->
     type_declaration -> type_declaration -> type_mismatch list

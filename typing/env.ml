@@ -21,6 +21,68 @@ open Longident
 open Path
 open Types
 
+module Lazy : sig
+  type 'a t
+  type ('a,'b) maker
+
+  val force : 'a t -> 'a
+  val create : ('a,'b) maker -> 'a -> 'b t
+  val declare_maker : string -> ('a,'b) maker
+  val register_maker : ('a,'b) maker -> ('a -> 'b) -> unit
+
+  exception UnknownLazyMaker of string
+
+end  = struct
+
+(* We can optimize this module: put the closure corresponding to the
+maker in an extra argument, that is removed by output_value, and
+recreated uninitialized by input_value. Since it will be shared by
+all lazy values with the same maker, the StringMap.find will only
+be evaluated once per maker. *)
+
+  exception UnknownLazyMaker of string
+
+  module StringMap = Map.Make(struct
+				type t = string
+				let compare = compare
+			      end)
+
+  type 'a t = 'a eval ref
+
+  and 'a eval =
+      Done of 'a
+    | Thunk of string * Obj.t
+
+  type ('a,'b) maker = string
+
+  let makers = ref (StringMap.empty : (Obj.t -> Obj.t) StringMap.t)
+
+  let force (x : 'a t) =
+    let x = (Obj.magic x : Obj.t t) in
+    match !x with
+	Done x -> (Obj.magic x : 'a)
+      | Thunk (name, args) ->
+	  let maker = try
+	    StringMap.find name !makers
+	  with Not_found ->
+	    raise (UnknownLazyMaker name)
+	  in
+	  let y = maker args in
+	    x := Done y;
+	  let y = (Obj.magic y : 'a) in
+	    y
+
+  let create maker args =
+    ref (Thunk (Obj.magic maker, Obj.magic args))
+
+  let declare_maker name =
+    if name = "" then invalid_arg "Lazy.maker cannot by \"\"";
+    Obj.magic name
+
+  let register_maker maker f =
+    makers := StringMap.add (Obj.magic maker) (Obj.magic f) !makers
+
+end
 
 type error =
     Not_an_interface of string
@@ -39,20 +101,20 @@ type summary =
   | Env_module of summary * Ident.t * module_type
   | Env_modtype of summary * Ident.t * modtype_declaration
   | Env_class of summary * Ident.t * class_declaration
-  | Env_cltype of summary * Ident.t * cltype_declaration
+  | Env_cltype of summary * Ident.t * class_type_declaration
   | Env_open of summary * Path.t
 
 type t = {
   values: (Path.t * value_description) Ident.tbl;
   annotations: (Path.t * Annot.ident) Ident.tbl;
-  constrs: constructor_description Ident.tbl;
-  labels: label_description Ident.tbl;
+  constrs: (Path.t * constructor_description) Ident.tbl;
+  labels: (Path.t * label_description) Ident.tbl;
   types: (Path.t * type_declaration) Ident.tbl;
   modules: (Path.t * module_type) Ident.tbl;
   modtypes: (Path.t * modtype_declaration) Ident.tbl;
   components: (Path.t * module_components) Ident.tbl;
   classes: (Path.t * class_declaration) Ident.tbl;
-  cltypes: (Path.t * cltype_declaration) Ident.tbl;
+  cltypes: (Path.t * class_type_declaration) Ident.tbl;
   summary: summary
 }
 
@@ -72,7 +134,7 @@ and structure_components = {
   mutable comp_modtypes: (string, (modtype_declaration * int)) Tbl.t;
   mutable comp_components: (string, (module_components * int)) Tbl.t;
   mutable comp_classes: (string, (class_declaration * int)) Tbl.t;
-  mutable comp_cltypes: (string, (cltype_declaration * int)) Tbl.t
+  mutable comp_cltypes: (string, (class_type_declaration * int)) Tbl.t
 }
 
 and functor_components = {
@@ -83,6 +145,13 @@ and functor_components = {
   fcomp_subst: Subst.t;  (* Prefixing substitution for the result signature *)
   fcomp_cache: (Path.t, module_components) Hashtbl.t  (* For memoization *)
 }
+
+let lazy_Subst__modtype = Lazy.declare_maker "Subst_modtype"
+let lazy_components_of_module = Lazy.declare_maker "components_of_module_maker"
+
+let _ =
+  Lazy.register_maker lazy_Subst__modtype
+    (fun (subst, mty) -> Subst.modtype subst mty)
 
 let empty = {
   values = Ident.empty; annotations = Ident.empty; constrs = Ident.empty;
@@ -107,7 +176,7 @@ let is_ident = function
 let is_local (p, _) = is_ident p
 
 let is_local_exn = function
-    {cstr_tag = Cstr_exception p} -> is_ident p
+    _, {cstr_tag = Cstr_exception p} -> is_ident p
   | _ -> false
 
 let diff env1 env2 =
@@ -179,7 +248,7 @@ let read_pers_struct modname filename =
     let comps =
       !components_of_module' empty Subst.identity
                              (Pident(Ident.create_persistent name))
-                             (Tmty_signature sign) in
+                             (Mty_signature sign) in
     let ps = { ps_name = name;
                ps_sig = sign;
                ps_comps = comps;
@@ -268,6 +337,8 @@ and find_class =
   find (fun env -> env.classes) (fun sc -> sc.comp_classes)
 and find_cltype =
   find (fun env -> env.cltypes) (fun sc -> sc.comp_cltypes)
+and find_annot =
+  find (fun env -> env.annotations) (fun sc -> sc.comp_annotations)
 
 (* Find the manifest type associated to a type when appropriate:
    - the type should be public or should have a private row,
@@ -298,8 +369,8 @@ let find_type_expansion_opt path env =
 
 let find_modtype_expansion path env =
   match find_modtype path env with
-    Tmodtype_abstract     -> raise Not_found
-  | Tmodtype_manifest mty -> mty
+    Modtype_abstract     -> raise Not_found
+  | Modtype_manifest mty -> mty
 
 let find_module path env =
   match path with
@@ -310,13 +381,14 @@ let find_module path env =
       with Not_found ->
         if Ident.persistent id then
           let ps = find_pers_struct (Ident.name id) in
-          Tmty_signature(ps.ps_sig)
+          Mty_signature(ps.ps_sig)
         else raise Not_found
       end
   | Pdot(p, s, pos) ->
       begin match Lazy.force (find_module_descr p env) with
         Structure_comps c ->
-          let (data, pos) = Tbl.find s c.comp_modules in Lazy.force data
+          let (data, pos) = Tbl.find s c.comp_modules in
+	    Lazy.force data
       | Functor_comps f ->
           raise Not_found
       end
@@ -363,7 +435,7 @@ and lookup_module lid env =
       with Not_found ->
         if s = !current_unit then raise Not_found;
         let ps = find_pers_struct s in
-        (Pident(Ident.create_persistent s), Tmty_signature ps.ps_sig)
+        (Pident(Ident.create_persistent s), Mty_signature ps.ps_sig)
       end
   | Ldot(l, s) ->
       let (p, descr) = lookup_module_descr l env in
@@ -424,9 +496,9 @@ let lookup_value =
 let lookup_annot id e =
   lookup (fun env -> env.annotations) (fun sc -> sc.comp_annotations) id e
 and lookup_constructor =
-  lookup_simple (fun env -> env.constrs) (fun sc -> sc.comp_constrs)
+  lookup (fun env -> env.constrs) (fun sc -> sc.comp_constrs)
 and lookup_label =
-  lookup_simple (fun env -> env.labels) (fun sc -> sc.comp_labels)
+  lookup (fun env -> env.labels) (fun sc -> sc.comp_labels)
 and lookup_type =
   lookup (fun env -> env.types) (fun sc -> sc.comp_types)
 and lookup_modtype =
@@ -440,7 +512,7 @@ and lookup_cltype =
 
 let rec scrape_modtype mty env =
   match mty with
-    Tmty_ident path ->
+    Mty_ident path ->
       begin try
         scrape_modtype (find_modtype_expansion path env) env
       with Not_found ->
@@ -473,45 +545,55 @@ let labels_of_type ty_path decl =
 
 let rec prefix_idents root pos sub = function
     [] -> ([], sub)
-  | Tsig_value(id, decl) :: rem ->
+  | Sig_value(id, decl) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let nextpos = match decl.val_kind with Val_prim _ -> pos | _ -> pos+1 in
       let (pl, final_sub) = prefix_idents root nextpos sub rem in
       (p::pl, final_sub)
-  | Tsig_type(id, decl, _) :: rem ->
+  | Sig_type(id, decl, _) :: rem ->
       let p = Pdot(root, Ident.name id, nopos) in
       let (pl, final_sub) =
         prefix_idents root pos (Subst.add_type id p sub) rem in
       (p::pl, final_sub)
-  | Tsig_exception(id, decl) :: rem ->
+  | Sig_exception(id, decl) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) = prefix_idents root (pos+1) sub rem in
       (p::pl, final_sub)
-  | Tsig_module(id, mty, _) :: rem ->
+  | Sig_module(id, mty, _) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) =
         prefix_idents root (pos+1) (Subst.add_module id p sub) rem in
       (p::pl, final_sub)
-  | Tsig_modtype(id, decl) :: rem ->
+  | Sig_modtype(id, decl) :: rem ->
       let p = Pdot(root, Ident.name id, nopos) in
       let (pl, final_sub) =
         prefix_idents root pos
-                      (Subst.add_modtype id (Tmty_ident p) sub) rem in
+                      (Subst.add_modtype id (Mty_ident p) sub) rem in
       (p::pl, final_sub)
-  | Tsig_class(id, decl, _) :: rem ->
+  | Sig_class(id, decl, _) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) = prefix_idents root (pos + 1) sub rem in
       (p::pl, final_sub)
-  | Tsig_cltype(id, decl, _) :: rem ->
+  | Sig_class_type(id, decl, _) :: rem ->
       let p = Pdot(root, Ident.name id, nopos) in
       let (pl, final_sub) = prefix_idents root pos sub rem in
       (p::pl, final_sub)
 
+(* [path] must be the path to a type, not to a module ! *)
+let rec path_subst_last path id =
+  match path with
+    Pident _ -> Pident id
+  | Pdot (p, name, pos) -> Pdot(p, Ident.name id, pos)
+  | Papply (p1, p2) -> assert false
+
 (* Compute structure descriptions *)
 
 let rec components_of_module env sub path mty =
-  lazy(match scrape_modtype mty env with
-    Tmty_signature sg ->
+  Lazy.create lazy_components_of_module (env, sub, path, mty)
+
+and  components_of_module_maker (env, sub, path, mty) =
+match scrape_modtype mty env with
+    Mty_signature sg ->
       let c =
         { comp_values = Tbl.empty; comp_annotations = Tbl.empty;
           comp_constrs = Tbl.empty;
@@ -524,7 +606,7 @@ let rec components_of_module env sub path mty =
       let pos = ref 0 in
       List.iter2 (fun item path ->
         match item with
-          Tsig_value(id, decl) ->
+          Sig_value(id, decl) ->
             let decl' = Subst.value_description sub decl in
             c.comp_values <-
               Tbl.add (Ident.name id) (decl', !pos) c.comp_values;
@@ -536,7 +618,7 @@ let rec components_of_module env sub path mty =
             begin match decl.val_kind with
               Val_prim _ -> () | _ -> incr pos
             end
-        | Tsig_type(id, decl, _) ->
+        | Sig_type(id, decl, _) ->
             let decl' = Subst.type_declaration sub decl in
             c.comp_types <-
               Tbl.add (Ident.name id) (decl', nopos) c.comp_types;
@@ -549,14 +631,15 @@ let rec components_of_module env sub path mty =
                 c.comp_labels <- Tbl.add name (descr, nopos) c.comp_labels)
               (labels_of_type path decl');
             env := store_type_infos id path decl !env
-        | Tsig_exception(id, decl) ->
+        | Sig_exception(id, decl) ->
             let decl' = Subst.exception_declaration sub decl in
             let cstr = Datarepr.exception_descr path decl' in
             c.comp_constrs <-
               Tbl.add (Ident.name id) (cstr, !pos) c.comp_constrs;
             incr pos
-        | Tsig_module(id, mty, _) ->
-            let mty' = lazy (Subst.modtype sub mty) in
+        | Sig_module(id, mty, _) ->
+
+            let mty' = Lazy.create lazy_Subst__modtype (sub, mty) in
             c.comp_modules <-
               Tbl.add (Ident.name id) (mty', !pos) c.comp_modules;
             let comps = components_of_module !env sub path mty in
@@ -564,23 +647,23 @@ let rec components_of_module env sub path mty =
               Tbl.add (Ident.name id) (comps, !pos) c.comp_components;
             env := store_module id path mty !env;
             incr pos
-        | Tsig_modtype(id, decl) ->
+        | Sig_modtype(id, decl) ->
             let decl' = Subst.modtype_declaration sub decl in
             c.comp_modtypes <-
               Tbl.add (Ident.name id) (decl', nopos) c.comp_modtypes;
             env := store_modtype id path decl !env
-        | Tsig_class(id, decl, _) ->
+        | Sig_class(id, decl, _) ->
             let decl' = Subst.class_declaration sub decl in
             c.comp_classes <-
               Tbl.add (Ident.name id) (decl', !pos) c.comp_classes;
             incr pos
-        | Tsig_cltype(id, decl, _) ->
+        | Sig_class_type(id, decl, _) ->
             let decl' = Subst.cltype_declaration sub decl in
             c.comp_cltypes <-
               Tbl.add (Ident.name id) (decl', !pos) c.comp_cltypes)
         sg pl;
         Structure_comps c
-  | Tmty_functor(param, ty_arg, ty_res) ->
+  | Mty_functor(param, ty_arg, ty_res) ->
         Functor_comps {
           fcomp_param = param;
           (* fcomp_arg must be prefixed eagerly, because it is interpreted
@@ -591,14 +674,14 @@ let rec components_of_module env sub path mty =
           fcomp_env = env;
           fcomp_subst = sub;
           fcomp_cache = Hashtbl.create 17 }
-  | Tmty_ident p ->
+  | Mty_ident p ->
         Structure_comps {
           comp_values = Tbl.empty; comp_annotations = Tbl.empty;
           comp_constrs = Tbl.empty;
           comp_labels = Tbl.empty; comp_types = Tbl.empty;
           comp_modules = Tbl.empty; comp_modtypes = Tbl.empty;
           comp_components = Tbl.empty; comp_classes = Tbl.empty;
-          comp_cltypes = Tbl.empty })
+          comp_cltypes = Tbl.empty }
 
 (* Insertion of bindings by identifier + path *)
 
@@ -617,14 +700,16 @@ and store_type id path info env =
   { env with
     constrs =
       List.fold_right
-        (fun (name, descr) constrs ->
-          Ident.add (Ident.create name) descr constrs)
+      (fun (name, descr) constrs ->
+        let id = Ident.create name in
+        Ident.add id (path_subst_last path id, descr) constrs)
         (constructors_of_type path info)
         env.constrs;
     labels =
       List.fold_right
-        (fun (name, descr) labels ->
-          Ident.add (Ident.create name) descr labels)
+      (fun (name, descr) labels ->
+        let id = Ident.create name in
+        Ident.add id (path_subst_last path id, descr) labels)
         (labels_of_type path info)
         env.labels;
     types = Ident.add id (path, info) env.types;
@@ -642,7 +727,7 @@ and store_type_infos id path info env =
 
 and store_exception id path decl env =
   { env with
-    constrs = Ident.add id (Datarepr.exception_descr path decl) env.constrs;
+    constrs = Ident.add id (path_subst_last path id, Datarepr.exception_descr path decl) env.constrs;
     summary = Env_exception(env.summary, id, decl) }
 
 and store_module id path mty env =
@@ -731,13 +816,13 @@ and enter_cltype = enter store_cltype
 
 let add_item comp env =
   match comp with
-    Tsig_value(id, decl)     -> add_value id decl env
-  | Tsig_type(id, decl, _)   -> add_type id decl env
-  | Tsig_exception(id, decl) -> add_exception id decl env
-  | Tsig_module(id, mty, _)  -> add_module id mty env
-  | Tsig_modtype(id, decl)   -> add_modtype id decl env
-  | Tsig_class(id, decl, _)  -> add_class id decl env
-  | Tsig_cltype(id, decl, _) -> add_cltype id decl env
+    Sig_value(id, decl)     -> add_value id decl env
+  | Sig_type(id, decl, _)   -> add_type id decl env
+  | Sig_exception(id, decl) -> add_exception id decl env
+  | Sig_module(id, mty, _)  -> add_module id mty env
+  | Sig_modtype(id, decl)   -> add_modtype id decl env
+  | Sig_class(id, decl, _)  -> add_class id decl env
+  | Sig_class_type(id, decl, _) -> add_cltype id decl env
 
 let rec add_signature sg env =
   match sg with
@@ -754,25 +839,25 @@ let open_signature root sg env =
     List.fold_left2
       (fun env item p ->
         match item with
-          Tsig_value(id, decl) ->
+          Sig_value(id, decl) ->
             let e1 = store_value (Ident.hide id) p
                         (Subst.value_description sub decl) env
             in store_annot (Ident.hide id) p (Annot.Iref_external) e1
-        | Tsig_type(id, decl, _) ->
+        | Sig_type(id, decl, _) ->
             store_type (Ident.hide id) p
                        (Subst.type_declaration sub decl) env
-        | Tsig_exception(id, decl) ->
+        | Sig_exception(id, decl) ->
             store_exception (Ident.hide id) p
                             (Subst.exception_declaration sub decl) env
-        | Tsig_module(id, mty, _) ->
+        | Sig_module(id, mty, _) ->
             store_module (Ident.hide id) p (Subst.modtype sub mty) env
-        | Tsig_modtype(id, decl) ->
+        | Sig_modtype(id, decl) ->
             store_modtype (Ident.hide id) p
                           (Subst.modtype_declaration sub decl) env
-        | Tsig_class(id, decl, _) ->
+        | Sig_class(id, decl, _) ->
             store_class (Ident.hide id) p
                         (Subst.class_declaration sub decl) env
-        | Tsig_cltype(id, decl, _) ->
+        | Sig_class_type(id, decl, _) ->
             store_cltype (Ident.hide id) p
                          (Subst.cltype_declaration sub decl) env)
       env sg pl in
@@ -805,6 +890,10 @@ let imported_units() =
 
 (* Save a signature to a file *)
 
+(* Fabrice: when saving signatures, there is a substitution on type names to
+replace the timestamp, probably to unify interfaces. What shall we do in
+our case ? Keep the substitution for later use ? *)
+
 let save_signature_with_imports sg modname filename imports =
   Btype.cleanup_abbrev ();
   Subst.reset_for_saving ();
@@ -824,7 +913,7 @@ let save_signature_with_imports sg modname filename imports =
        will also return its crc *)
     let comps =
       components_of_module empty Subst.identity
-        (Pident(Ident.create_persistent modname)) (Tmty_signature sg) in
+        (Pident(Ident.create_persistent modname)) (Mty_signature sg) in
     let ps =
       { ps_name = modname;
         ps_sig = sg;
@@ -870,3 +959,7 @@ let report_error ppf = function
       fprintf ppf
         "@[<hov>Unit %s imports from %s, which uses recursive types.@ %s@]"
         import export "The compilation flag -rectypes is required"
+
+
+let _ =
+  Lazy.register_maker lazy_components_of_module components_of_module_maker

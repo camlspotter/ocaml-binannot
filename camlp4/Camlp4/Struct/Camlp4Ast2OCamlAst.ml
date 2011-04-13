@@ -57,6 +57,8 @@ module Make (Ast : Sig.Camlp4Ast) = struct
   value mkloc = Loc.to_ocaml_location;
   value mkghloc loc = Loc.to_ocaml_location (Loc.ghostify loc);
 
+  value mkcsig loc d cil = { pcsig_loc = mkloc loc; 
+    pcsig_self = d; pcsig_fields = cil; };
   value mktyp loc d = {ptyp_desc = d; ptyp_loc = mkloc loc};
   value mkpat loc d = {ppat_desc = d; ppat_loc = mkloc loc};
   value mkghpat loc d = {ppat_desc = d; ppat_loc = mkghloc loc};
@@ -68,6 +70,8 @@ module Make (Ast : Sig.Camlp4Ast) = struct
   value mkfield loc d = {pfield_desc = d; pfield_loc = mkloc loc};
   value mkcty loc d = {pcty_desc = d; pcty_loc = mkloc loc};
   value mkpcl loc d = {pcl_desc = d; pcl_loc = mkloc loc};
+  value mkctf loc d = { pctf_loc = mkloc loc; pctf_desc = d };
+  value mkpcf loc d = { pcf_desc = d; pcf_loc = mkloc loc; };
   value mkpolytype t =
     match t.ptyp_desc with
     [ Ptyp_poly _ _ -> t
@@ -348,7 +352,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
 
   value type_decl tl cl t = type_decl tl cl (loc_of_ctyp t) None False t;
 
-  value mkvalue_desc t p = {pval_type = ctyp t; pval_prim = p};
+  value mkvalue_desc t p loc = {pval_type = ctyp t; pval_prim = p; pval_loc = mkloc loc};
 
   value rec list_of_meta_list =
     fun
@@ -729,7 +733,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
           | p -> p ]
         in
         let cil = class_str_item cfl [] in
-        mkexp loc (Pexp_object (patt p, cil))
+        mkexp loc (Pexp_object { pcstr_pat = patt p; pcstr_fields = cil })
     | ExOlb loc _ _ -> error loc "labeled expression not allowed here"
     | ExOvr loc iel -> mkexp loc (Pexp_override (mkideexp iel []))
     | ExRec loc lel eo ->
@@ -876,7 +880,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
         [mksig loc (Psig_exception (conv_con s)
                                    (List.map ctyp (list_of_ctyp t []))) :: l]
     | SgExc _ _ -> assert False (*FIXME*)
-    | SgExt loc n t sl -> [mksig loc (Psig_value n (mkvalue_desc t (list_of_meta_list sl))) :: l]
+    | SgExt loc n t sl -> [mksig loc (Psig_value n (mkvalue_desc t (list_of_meta_list sl) loc)) :: l]
     | SgInc loc mt -> [mksig loc (Psig_include (module_type mt)) :: l]
     | SgMod loc n mt -> [mksig loc (Psig_module n (module_type mt)) :: l]
     | SgRecMod loc mb ->
@@ -891,7 +895,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
     | SgOpn loc id ->
         [mksig loc (Psig_open (long_uident id)) :: l]
     | SgTyp loc tdl -> [mksig loc (Psig_type (mktype_decl tdl [])) :: l]
-    | SgVal loc n t -> [mksig loc (Psig_value n (mkvalue_desc t [])) :: l]
+    | SgVal loc n t -> [mksig loc (Psig_value n (mkvalue_desc t [] loc)) :: l]
     | <:sig_item@loc< $anti:_$ >> -> error loc "antiquotation in sig_item" ]
   and module_sig_binding x acc =
     match x with
@@ -947,7 +951,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
         [mkstr loc (Pstr_exn_rebind (conv_con s) (ident i)) :: l ]
     | StExc _ _ _ -> assert False (*FIXME*)
     | StExp loc e -> [mkstr loc (Pstr_eval (expr e)) :: l]
-    | StExt loc n t sl -> [mkstr loc (Pstr_primitive n (mkvalue_desc t (list_of_meta_list sl))) :: l]
+    | StExt loc n t sl -> [mkstr loc (Pstr_primitive n (mkvalue_desc t (list_of_meta_list sl) loc)) :: l]
     | StInc loc me -> [mkstr loc (Pstr_include (module_expr me)) :: l]
     | StMod loc n me -> [mkstr loc (Pstr_module n (module_expr me)) :: l]
     | StRecMod loc mb ->
@@ -977,7 +981,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
           | t -> t ]
         in
         let cil = class_sig_item ctfl [] in
-        mkcty loc (Pcty_signature (ctyp t, cil))
+        mkcty loc (Pcty_signature (mkcsig loc (ctyp t) cil))
     | CtCon loc _ _ _ ->
         error loc "invalid virtual class inside a class type"
     | CtAnt _ _ | CtEq _ _ _ | CtCol _ _ _ | CtAnd _ _ _ | CtNil _ ->
@@ -1018,16 +1022,19 @@ module Make (Ast : Sig.Camlp4Ast) = struct
   and class_sig_item c l =
     match c with
     [ <:class_sig_item<>> -> l
-    | CgCtr loc t1 t2 -> [Pctf_cstr (ctyp t1, ctyp t2, mkloc loc) :: l]
+    | CgCtr loc t1 t2 -> [mkctf loc (Pctf_cstr (ctyp t1, ctyp t2)) :: l]
     | <:class_sig_item< $csg1$; $csg2$ >> ->
         class_sig_item csg1 (class_sig_item csg2 l)
-    | CgInh _ ct -> [Pctf_inher (class_type ct) :: l]
+    | CgInh loc ct -> [mkctf loc (Pctf_inher (class_type ct)) :: l]
     | CgMth loc s pf t ->
-        [Pctf_meth (s, mkprivate pf, mkpolytype (ctyp t), mkloc loc) :: l]
+        [mkctf loc 
+          (Pctf_meth (s, mkprivate pf, mkpolytype (ctyp t))) :: l]
     | CgVal loc s b v t ->
-        [Pctf_val (s, mkmutable b, mkvirtual v, ctyp t, mkloc loc) :: l]
+        [mkctf loc 
+            (Pctf_val (s, mkmutable b, mkvirtual v, ctyp t)) :: l]
     | CgVir loc s b t ->
-        [Pctf_virt (s, mkprivate b, mkpolytype (ctyp t), mkloc loc) :: l]
+        [mkctf loc 
+          (Pctf_virt (s, mkprivate b, mkpolytype (ctyp t))) :: l]
     | CgAnt _ _ -> assert False ]
   and class_expr =
     fun
@@ -1058,7 +1065,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
           | p -> p ]
         in
         let cil = class_str_item cfl [] in
-        mkpcl loc (Pcl_structure (patt p, cil))
+        mkpcl loc (Pcl_structure { pcstr_pat = patt p; pcstr_fields = cil})
     | CeTyc loc ce ct ->
         mkpcl loc (Pcl_constraint (class_expr ce) (class_type ct))
     | CeCon loc _ _ _ ->
@@ -1066,27 +1073,30 @@ module Make (Ast : Sig.Camlp4Ast) = struct
     | CeAnt _ _ | CeEq _ _ _ | CeAnd _ _ _ | CeNil _ -> assert False ]
   and class_str_item c l =
     match c with
-    [ CrNil _ -> l
-    | CrCtr loc t1 t2 -> [Pcf_cstr (ctyp t1, ctyp t2, mkloc loc) :: l]
+    [ CrNil _ -> l (* TODO *)
+    | CrCtr loc t1 t2 -> [mkpcf loc (Pcf_constr (ctyp t1, ctyp t2)) :: l]
     | <:class_str_item< $cst1$; $cst2$ >> ->
         class_str_item cst1 (class_str_item cst2 l)
     | CrInh loc ov ce pb ->
         let opb = if pb = "" then None else Some pb in
-        [Pcf_inher (override_flag loc ov) (class_expr ce) opb :: l]
-    | CrIni _ e -> [Pcf_init (expr e) :: l]
+        [mkpcf loc (Pcf_inher (override_flag loc ov) (class_expr ce) opb) :: l]
+    | CrIni loc e -> [mkpcf loc (Pcf_init (expr e)) :: l]
     | CrMth loc s ov pf e t ->
         let t =
           match t with
           [ <:ctyp<>> -> None
           | t -> Some (mkpolytype (ctyp t)) ] in
         let e = mkexp loc (Pexp_poly (expr e) t) in
-        [Pcf_meth (s, mkprivate pf, override_flag loc ov, e, mkloc loc) :: l]
+        [mkpcf loc (Pcf_meth (s, mkprivate pf, 
+              override_flag loc ov, e)) :: l]
     | CrVal loc s ov mf e ->
-        [Pcf_val (s, mkmutable mf, override_flag loc ov, expr e, mkloc loc) :: l]
+        [mkpcf loc (Pcf_val (s, mkmutable mf, 
+              override_flag loc ov, expr e)) :: l]
     | CrVir loc s pf t ->
-        [Pcf_virt (s, mkprivate pf, mkpolytype (ctyp t), mkloc loc) :: l]
+        [mkpcf loc (Pcf_virt (s, mkprivate pf, 
+              mkpolytype (ctyp t))) :: l]
     | CrVvr loc s mf t ->
-        [Pcf_valvirt (s, mkmutable mf, ctyp t, mkloc loc) :: l]
+        [mkpcf loc (Pcf_valvirt (s, mkmutable mf, ctyp t)) :: l]
     | CrAnt _ _ -> assert False ];
 
   value sig_item ast = sig_item ast [];

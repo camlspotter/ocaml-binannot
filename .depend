@@ -33,6 +33,7 @@ parsing/parse.cmi: parsing/parsetree.cmi
 parsing/parser.cmi: parsing/parsetree.cmi
 parsing/parsetree.cmi: parsing/longident.cmi parsing/location.cmi \
     parsing/asttypes.cmi
+parsing/pprintast.cmi: parsing/parsetree.cmi
 parsing/printast.cmi: parsing/parsetree.cmi
 parsing/syntaxerr.cmi: parsing/location.cmi
 parsing/lexer.cmo: utils/warnings.cmi parsing/parser.cmi utils/misc.cmi \
@@ -57,6 +58,10 @@ parsing/parser.cmo: parsing/syntaxerr.cmi parsing/parsetree.cmi \
 parsing/parser.cmx: parsing/syntaxerr.cmx parsing/parsetree.cmi \
     parsing/longident.cmx parsing/location.cmx utils/clflags.cmx \
     parsing/asttypes.cmi parsing/parser.cmi
+parsing/pprintast.cmo: parsing/parsetree.cmi parsing/longident.cmi \
+    parsing/location.cmi parsing/asttypes.cmi parsing/pprintast.cmi
+parsing/pprintast.cmx: parsing/parsetree.cmi parsing/longident.cmx \
+    parsing/location.cmx parsing/asttypes.cmi parsing/pprintast.cmi
 parsing/printast.cmo: parsing/parsetree.cmi parsing/longident.cmi \
     parsing/location.cmi parsing/asttypes.cmi parsing/printast.cmi
 parsing/printast.cmx: parsing/parsetree.cmi parsing/longident.cmx \
@@ -65,14 +70,13 @@ parsing/syntaxerr.cmo: parsing/location.cmi parsing/syntaxerr.cmi
 parsing/syntaxerr.cmx: parsing/location.cmx parsing/syntaxerr.cmi
 typing/annot.cmi: parsing/location.cmi
 typing/btype.cmi: typing/types.cmi typing/path.cmi parsing/asttypes.cmi
-typing/ctype.cmi: typing/types.cmi typing/path.cmi typing/ident.cmi \
-    typing/env.cmi parsing/asttypes.cmi
+typing/ctype.cmi: typing/types.cmi typing/path.cmi parsing/longident.cmi \
+    typing/ident.cmi typing/env.cmi parsing/asttypes.cmi
 typing/datarepr.cmi: typing/types.cmi typing/path.cmi parsing/asttypes.cmi
 typing/env.cmi: typing/types.cmi typing/path.cmi parsing/longident.cmi \
     typing/ident.cmi utils/consistbl.cmi typing/annot.cmi
 typing/ident.cmi:
-typing/includeclass.cmi: typing/types.cmi typing/typedtree.cmi typing/env.cmi \
-    typing/ctype.cmi
+typing/includeclass.cmi: typing/types.cmi typing/env.cmi typing/ctype.cmi
 typing/includecore.cmi: typing/types.cmi typing/typedtree.cmi \
     typing/ident.cmi typing/env.cmi
 typing/includemod.cmi: typing/types.cmi typing/typedtree.cmi typing/path.cmi \
@@ -81,7 +85,7 @@ typing/mtype.cmi: typing/types.cmi typing/path.cmi typing/ident.cmi \
     typing/env.cmi
 typing/oprint.cmi: typing/outcometree.cmi
 typing/outcometree.cmi: parsing/asttypes.cmi
-typing/parmatch.cmi: typing/types.cmi typing/typedtree.cmi \
+typing/parmatch.cmi: typing/types.cmi typing/typedtree.cmi typing/path.cmi \
     parsing/location.cmi typing/env.cmi
 typing/path.cmi: typing/ident.cmi
 typing/predef.cmi: typing/types.cmi typing/path.cmi typing/ident.cmi
@@ -96,9 +100,9 @@ typing/typeclass.cmi: typing/types.cmi typing/typedtree.cmi \
 typing/typecore.cmi: typing/types.cmi typing/typedtree.cmi typing/path.cmi \
     parsing/parsetree.cmi parsing/longident.cmi parsing/location.cmi \
     typing/ident.cmi typing/env.cmi parsing/asttypes.cmi typing/annot.cmi
-typing/typedecl.cmi: typing/types.cmi typing/path.cmi parsing/parsetree.cmi \
-    parsing/longident.cmi parsing/location.cmi typing/includecore.cmi \
-    typing/ident.cmi typing/env.cmi
+typing/typedecl.cmi: typing/types.cmi typing/typedtree.cmi typing/path.cmi \
+    parsing/parsetree.cmi parsing/longident.cmi parsing/location.cmi \
+    typing/includecore.cmi typing/ident.cmi typing/env.cmi
 typing/typedtree.cmi: typing/types.cmi typing/primitive.cmi typing/path.cmi \
     parsing/location.cmi typing/ident.cmi typing/env.cmi parsing/asttypes.cmi
 typing/typemod.cmi: typing/types.cmi typing/typedtree.cmi \
@@ -106,8 +110,13 @@ typing/typemod.cmi: typing/types.cmi typing/typedtree.cmi \
     typing/includemod.cmi typing/ident.cmi typing/env.cmi
 typing/types.cmi: typing/primitive.cmi typing/path.cmi typing/ident.cmi \
     parsing/asttypes.cmi
-typing/typetexp.cmi: typing/types.cmi typing/path.cmi parsing/parsetree.cmi \
-    parsing/longident.cmi parsing/location.cmi typing/env.cmi
+typing/typetexp.cmi: typing/types.cmi typing/typedtree.cmi typing/path.cmi \
+    parsing/parsetree.cmi parsing/longident.cmi parsing/location.cmi \
+    typing/env.cmi
+typing/typetexp_ast2src.cmi: typing/types.cmi typing/typedtree.cmi \
+    typing/path.cmi parsing/parsetree.cmi parsing/longident.cmi \
+    parsing/location.cmi typing/env.cmi
+typing/untypeast.cmi: typing/typedtree.cmi parsing/parsetree.cmi
 typing/unused_var.cmi: parsing/parsetree.cmi
 typing/btype.cmo: typing/types.cmi typing/path.cmi utils/misc.cmi \
     typing/btype.cmi
@@ -199,6 +208,12 @@ typing/subst.cmo: typing/types.cmi utils/tbl.cmi typing/path.cmi \
     utils/misc.cmi typing/ident.cmi typing/btype.cmi typing/subst.cmi
 typing/subst.cmx: typing/types.cmx utils/tbl.cmx typing/path.cmx \
     utils/misc.cmx typing/ident.cmx typing/btype.cmx typing/subst.cmi
+typing/ty.cmo: typing/typedtree.cmi typing/path.cmi parsing/parsetree.cmi \
+    utils/misc.cmi parsing/longident.cmi typing/ident.cmi \
+    parsing/asttypes.cmi
+typing/ty.cmx: typing/typedtree.cmx typing/path.cmx parsing/parsetree.cmi \
+    utils/misc.cmx parsing/longident.cmx typing/ident.cmx \
+    parsing/asttypes.cmi
 typing/typeclass.cmo: utils/warnings.cmi typing/typetexp.cmi typing/types.cmi \
     typing/typedtree.cmi typing/typedecl.cmi typing/typecore.cmi \
     typing/subst.cmi typing/stypes.cmi typing/printtyp.cmi typing/predef.cmi \
@@ -249,36 +264,44 @@ typing/typedtree.cmo: typing/types.cmi typing/primitive.cmi typing/path.cmi \
 typing/typedtree.cmx: typing/types.cmx typing/primitive.cmx typing/path.cmx \
     utils/misc.cmx parsing/location.cmx typing/ident.cmx typing/env.cmx \
     parsing/asttypes.cmi typing/typedtree.cmi
-typing/typemod.cmo: typing/typetexp.cmi typing/types.cmi typing/typedtree.cmi \
+typing/typemod.cmo: utils/warnings.cmi typing/untypeast.cmi \
+    typing/typetexp.cmi typing/types.cmi typing/typedtree.cmi \
     typing/typedecl.cmi typing/typecore.cmi typing/typeclass.cmi \
-    typing/subst.cmi typing/stypes.cmi typing/printtyp.cmi typing/path.cmi \
-    parsing/parsetree.cmi typing/mtype.cmi utils/misc.cmi \
-    parsing/longident.cmi parsing/location.cmi typing/includemod.cmi \
-    typing/ident.cmi typing/env.cmi typing/ctype.cmi utils/config.cmi \
-    utils/clflags.cmi typing/btype.cmi parsing/asttypes.cmi typing/annot.cmi \
-    typing/typemod.cmi
-typing/typemod.cmx: typing/typetexp.cmx typing/types.cmx typing/typedtree.cmx \
+    typing/subst.cmi typing/stypes.cmi typing/printtyp.cmi \
+    parsing/pprintast.cmi typing/path.cmi parsing/parsetree.cmi \
+    typing/mtype.cmi utils/misc.cmi parsing/longident.cmi \
+    parsing/location.cmi typing/includemod.cmi typing/ident.cmi \
+    typing/env.cmi typing/ctype.cmi utils/config.cmi utils/clflags.cmi \
+    typing/btype.cmi parsing/asttypes.cmi typing/annot.cmi typing/typemod.cmi
+typing/typemod.cmx: utils/warnings.cmx typing/untypeast.cmx \
+    typing/typetexp.cmx typing/types.cmx typing/typedtree.cmx \
     typing/typedecl.cmx typing/typecore.cmx typing/typeclass.cmx \
-    typing/subst.cmx typing/stypes.cmx typing/printtyp.cmx typing/path.cmx \
-    parsing/parsetree.cmi typing/mtype.cmx utils/misc.cmx \
-    parsing/longident.cmx parsing/location.cmx typing/includemod.cmx \
-    typing/ident.cmx typing/env.cmx typing/ctype.cmx utils/config.cmx \
-    utils/clflags.cmx typing/btype.cmx parsing/asttypes.cmi typing/annot.cmi \
-    typing/typemod.cmi
+    typing/subst.cmx typing/stypes.cmx typing/printtyp.cmx \
+    parsing/pprintast.cmx typing/path.cmx parsing/parsetree.cmi \
+    typing/mtype.cmx utils/misc.cmx parsing/longident.cmx \
+    parsing/location.cmx typing/includemod.cmx typing/ident.cmx \
+    typing/env.cmx typing/ctype.cmx utils/config.cmx utils/clflags.cmx \
+    typing/btype.cmx parsing/asttypes.cmi typing/annot.cmi typing/typemod.cmi
 typing/types.cmo: typing/primitive.cmi typing/path.cmi utils/misc.cmi \
     typing/ident.cmi parsing/asttypes.cmi typing/types.cmi
 typing/types.cmx: typing/primitive.cmx typing/path.cmx utils/misc.cmx \
     typing/ident.cmx parsing/asttypes.cmi typing/types.cmi
-typing/typetexp.cmo: utils/warnings.cmi typing/types.cmi utils/tbl.cmi \
-    typing/printtyp.cmi typing/path.cmi parsing/parsetree.cmi utils/misc.cmi \
-    parsing/longident.cmi parsing/location.cmi typing/env.cmi \
+typing/typetexp.cmo: utils/warnings.cmi typing/types.cmi typing/typedtree.cmi \
+    utils/tbl.cmi typing/printtyp.cmi typing/path.cmi parsing/parsetree.cmi \
+    utils/misc.cmi parsing/longident.cmi parsing/location.cmi typing/env.cmi \
     typing/ctype.cmi utils/clflags.cmi typing/btype.cmi parsing/asttypes.cmi \
     typing/typetexp.cmi
-typing/typetexp.cmx: utils/warnings.cmx typing/types.cmx utils/tbl.cmx \
-    typing/printtyp.cmx typing/path.cmx parsing/parsetree.cmi utils/misc.cmx \
-    parsing/longident.cmx parsing/location.cmx typing/env.cmx \
+typing/typetexp.cmx: utils/warnings.cmx typing/types.cmx typing/typedtree.cmx \
+    utils/tbl.cmx typing/printtyp.cmx typing/path.cmx parsing/parsetree.cmi \
+    utils/misc.cmx parsing/longident.cmx parsing/location.cmx typing/env.cmx \
     typing/ctype.cmx utils/clflags.cmx typing/btype.cmx parsing/asttypes.cmi \
     typing/typetexp.cmi
+typing/untypeast.cmo: typing/typedtree.cmi typing/path.cmi \
+    parsing/parsetree.cmi utils/misc.cmi parsing/longident.cmi \
+    typing/ident.cmi parsing/asttypes.cmi typing/untypeast.cmi
+typing/untypeast.cmx: typing/typedtree.cmx typing/path.cmx \
+    parsing/parsetree.cmi utils/misc.cmx parsing/longident.cmx \
+    typing/ident.cmx parsing/asttypes.cmi typing/untypeast.cmi
 typing/unused_var.cmo: utils/warnings.cmi parsing/parsetree.cmi \
     parsing/longident.cmi parsing/location.cmi parsing/asttypes.cmi \
     typing/unused_var.cmi
@@ -510,8 +533,8 @@ asmcomp/selectgen.cmi: utils/tbl.cmi asmcomp/reg.cmi asmcomp/mach.cmi \
 asmcomp/selection.cmi: asmcomp/mach.cmi asmcomp/cmm.cmi
 asmcomp/spill.cmi: asmcomp/mach.cmi
 asmcomp/split.cmi: asmcomp/mach.cmi
-asmcomp/arch.cmo:
-asmcomp/arch.cmx:
+asmcomp/arch.cmo: utils/misc.cmi utils/config.cmi
+asmcomp/arch.cmx: utils/misc.cmx utils/config.cmx
 asmcomp/asmgen.cmo: bytecomp/translmod.cmi asmcomp/split.cmi \
     asmcomp/spill.cmi asmcomp/selection.cmi asmcomp/scheduling.cmi \
     asmcomp/reload.cmi asmcomp/reg.cmi asmcomp/proc.cmi asmcomp/printmach.cmi \
@@ -615,13 +638,15 @@ asmcomp/debuginfo.cmo: parsing/location.cmi bytecomp/lambda.cmi \
 asmcomp/debuginfo.cmx: parsing/location.cmx bytecomp/lambda.cmx \
     asmcomp/debuginfo.cmi
 asmcomp/emit.cmo: asmcomp/reg.cmi asmcomp/proc.cmi utils/misc.cmi \
-    asmcomp/mach.cmi asmcomp/linearize.cmi asmcomp/emitaux.cmi \
-    asmcomp/debuginfo.cmi utils/config.cmi asmcomp/compilenv.cmi \
-    asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo asmcomp/emit.cmi
+    asmcomp/mach.cmi parsing/location.cmi asmcomp/linearize.cmi \
+    asmcomp/emitaux.cmi asmcomp/debuginfo.cmi utils/config.cmi \
+    asmcomp/compilenv.cmi asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo \
+    asmcomp/emit.cmi
 asmcomp/emit.cmx: asmcomp/reg.cmx asmcomp/proc.cmx utils/misc.cmx \
-    asmcomp/mach.cmx asmcomp/linearize.cmx asmcomp/emitaux.cmx \
-    asmcomp/debuginfo.cmx utils/config.cmx asmcomp/compilenv.cmx \
-    asmcomp/cmm.cmx utils/clflags.cmx asmcomp/arch.cmx asmcomp/emit.cmi
+    asmcomp/mach.cmx parsing/location.cmx asmcomp/linearize.cmx \
+    asmcomp/emitaux.cmx asmcomp/debuginfo.cmx utils/config.cmx \
+    asmcomp/compilenv.cmx asmcomp/cmm.cmx utils/clflags.cmx asmcomp/arch.cmx \
+    asmcomp/emit.cmi
 asmcomp/emitaux.cmo: asmcomp/reg.cmi asmcomp/linearize.cmi \
     asmcomp/debuginfo.cmi asmcomp/cmm.cmi asmcomp/arch.cmo \
     asmcomp/emitaux.cmi
@@ -661,17 +686,17 @@ asmcomp/printmach.cmx: asmcomp/reg.cmx asmcomp/proc.cmx asmcomp/printcmm.cmx \
     asmcomp/mach.cmx asmcomp/debuginfo.cmx asmcomp/cmm.cmx asmcomp/arch.cmx \
     asmcomp/printmach.cmi
 asmcomp/proc.cmo: asmcomp/reg.cmi utils/misc.cmi asmcomp/mach.cmi \
-    utils/config.cmi asmcomp/cmm.cmi utils/ccomp.cmi asmcomp/arch.cmo \
-    asmcomp/proc.cmi
+    utils/config.cmi asmcomp/cmm.cmi utils/clflags.cmi utils/ccomp.cmi \
+    asmcomp/arch.cmo asmcomp/proc.cmi
 asmcomp/proc.cmx: asmcomp/reg.cmx utils/misc.cmx asmcomp/mach.cmx \
-    utils/config.cmx asmcomp/cmm.cmx utils/ccomp.cmx asmcomp/arch.cmx \
-    asmcomp/proc.cmi
+    utils/config.cmx asmcomp/cmm.cmx utils/clflags.cmx utils/ccomp.cmx \
+    asmcomp/arch.cmx asmcomp/proc.cmi
 asmcomp/reg.cmo: asmcomp/cmm.cmi asmcomp/reg.cmi
 asmcomp/reg.cmx: asmcomp/cmm.cmx asmcomp/reg.cmi
 asmcomp/reload.cmo: asmcomp/reloadgen.cmi asmcomp/reg.cmi asmcomp/mach.cmi \
-    asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo asmcomp/reload.cmi
+    asmcomp/cmm.cmi asmcomp/arch.cmo asmcomp/reload.cmi
 asmcomp/reload.cmx: asmcomp/reloadgen.cmx asmcomp/reg.cmx asmcomp/mach.cmx \
-    asmcomp/cmm.cmx utils/clflags.cmx asmcomp/arch.cmx asmcomp/reload.cmi
+    asmcomp/cmm.cmx asmcomp/arch.cmx asmcomp/reload.cmi
 asmcomp/reloadgen.cmo: asmcomp/reg.cmi utils/misc.cmi asmcomp/mach.cmi \
     asmcomp/reloadgen.cmi
 asmcomp/reloadgen.cmx: asmcomp/reg.cmx utils/misc.cmx asmcomp/mach.cmx \
@@ -692,10 +717,10 @@ asmcomp/selectgen.cmx: utils/tbl.cmx asmcomp/reg.cmx asmcomp/proc.cmx \
     asmcomp/cmm.cmx asmcomp/arch.cmx asmcomp/selectgen.cmi
 asmcomp/selection.cmo: asmcomp/selectgen.cmi asmcomp/reg.cmi asmcomp/proc.cmi \
     utils/misc.cmi asmcomp/mach.cmi asmcomp/debuginfo.cmi asmcomp/cmm.cmi \
-    utils/clflags.cmi asmcomp/arch.cmo asmcomp/selection.cmi
+    asmcomp/arch.cmo asmcomp/selection.cmi
 asmcomp/selection.cmx: asmcomp/selectgen.cmx asmcomp/reg.cmx asmcomp/proc.cmx \
     utils/misc.cmx asmcomp/mach.cmx asmcomp/debuginfo.cmx asmcomp/cmm.cmx \
-    utils/clflags.cmx asmcomp/arch.cmx asmcomp/selection.cmi
+    asmcomp/arch.cmx asmcomp/selection.cmi
 asmcomp/spill.cmo: asmcomp/reg.cmi asmcomp/proc.cmi utils/misc.cmi \
     asmcomp/mach.cmi asmcomp/spill.cmi
 asmcomp/spill.cmx: asmcomp/reg.cmx asmcomp/proc.cmx utils/misc.cmx \

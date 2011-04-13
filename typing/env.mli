@@ -29,7 +29,8 @@ val find_type: Path.t -> t -> type_declaration
 val find_module: Path.t -> t -> module_type
 val find_modtype: Path.t -> t -> modtype_declaration
 val find_class: Path.t -> t -> class_declaration
-val find_cltype: Path.t -> t -> cltype_declaration
+val find_cltype: Path.t -> t -> class_type_declaration
+val find_annot: Path.t -> t -> Annot.ident
 
 val find_type_expansion: Path.t -> t -> type_expr list * type_expr
 val find_type_expansion_opt: Path.t -> t -> type_expr list * type_expr
@@ -41,13 +42,13 @@ val find_modtype_expansion: Path.t -> t -> Types.module_type
 
 val lookup_value: Longident.t -> t -> Path.t * value_description
 val lookup_annot: Longident.t -> t -> Path.t * Annot.ident
-val lookup_constructor: Longident.t -> t -> constructor_description
-val lookup_label: Longident.t -> t -> label_description
+val lookup_constructor: Longident.t -> t -> Path.t * constructor_description
+val lookup_label: Longident.t -> t -> Path.t * label_description
 val lookup_type: Longident.t -> t -> Path.t * type_declaration
 val lookup_module: Longident.t -> t -> Path.t * module_type
 val lookup_modtype: Longident.t -> t -> Path.t * modtype_declaration
 val lookup_class: Longident.t -> t -> Path.t * class_declaration
-val lookup_cltype: Longident.t -> t -> Path.t * cltype_declaration
+val lookup_cltype: Longident.t -> t -> Path.t * class_type_declaration
 
 (* Insertion by identifier *)
 
@@ -58,7 +59,7 @@ val add_exception: Ident.t -> exception_declaration -> t -> t
 val add_module: Ident.t -> module_type -> t -> t
 val add_modtype: Ident.t -> modtype_declaration -> t -> t
 val add_class: Ident.t -> class_declaration -> t -> t
-val add_cltype: Ident.t -> cltype_declaration -> t -> t
+val add_cltype: Ident.t -> class_type_declaration -> t -> t
 
 (* Insertion of all fields of a signature. *)
 
@@ -79,7 +80,7 @@ val enter_exception: string -> exception_declaration -> t -> Ident.t * t
 val enter_module: string -> module_type -> t -> Ident.t * t
 val enter_modtype: string -> modtype_declaration -> t -> Ident.t * t
 val enter_class: string -> class_declaration -> t -> Ident.t * t
-val enter_cltype: string -> cltype_declaration -> t -> Ident.t * t
+val enter_cltype: string -> class_type_declaration -> t -> Ident.t * t
 
 (* Initialize the cache of in-core module interfaces. *)
 val reset_cache: unit -> unit
@@ -121,7 +122,7 @@ type summary =
   | Env_module of summary * Ident.t * module_type
   | Env_modtype of summary * Ident.t * modtype_declaration
   | Env_class of summary * Ident.t * class_declaration
-  | Env_cltype of summary * Ident.t * cltype_declaration
+  | Env_cltype of summary * Ident.t * class_type_declaration
   | Env_open of summary * Path.t
 
 val summary: t -> summary
