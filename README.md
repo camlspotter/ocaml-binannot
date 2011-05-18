@@ -23,7 +23,15 @@ Current status
 + A tool tools/genannot has been added, to convert .cmt files to .annot
    files
 
-- the typed tree to parse tree converter needs to replace Path.t with
++ TODO: the typed tree to parse tree converter needs to replace Path.t with
    Longidents of the shortest possible size, to avoir conflicts
-- in case of a type error, we might want to still dump a complete typed tree
-   with partial type information
++ TODO: in case of a type error, we might want to still dump a complete typed tree with partial type information
++ TODO: in case of type error, there is no way to distinguish an erroneous .cmti
+   file where just one signature was correctly typed from a correct .cmti.
+
+Current format of .cmt/.cmti files
+----------------------------------
+
+Currently, the format of .cmt/.cmti files is a binary dump (output_value)
+of a value of type 'Typedtree.saved_type array'. The array contains just one
+value if no error happened.
