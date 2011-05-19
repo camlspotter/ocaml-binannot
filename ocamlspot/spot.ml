@@ -260,9 +260,9 @@ module Annot = struct
       (Type _ | Str _ | Module _ | Functor_parameter _ | Use _ | Non_expansive _
           | Mod_type _) -> false 
 
-  (* CR jfuruse: A Location.t contains a filename, though it is always
-     unique. Waste of 4xn bytes. *)
-  let recorded = (Hashtbl.create 1023 : (Location.t, (int * t list)) Hashtbl.t)
+  (* Recorded Location-Annot table. One location may have more than one binding! *)
+  let recorded = (Hashtbl.create 1023 : (Location.t, t) Hashtbl.t)
+
   let recorded_top = ref None
 
   let clear () = Hashtbl.clear recorded
@@ -285,21 +285,7 @@ module Annot = struct
   open Typedtree
 
   let record loc t = 
-    let really_record () = 
-      let num_records, records = 
-        try Hashtbl.find recorded loc with Not_found -> 0, []
-      in
-      (* CR jfuruse: I am not really sure the below is correct now,
-         but I remember the huge compilation slow down... *)
-      (* This caching works horribly when too many things are defined 
-         at the same location. For example, a type definition of more than 
-         3000 variants, with sexp camlp4 extension, the compile time explodes
-         from 10secs to 4mins! Therefore this works 
-         only if [num_records <= 10] 
-      *)
-      if num_records <= 10 && List.exists (equal t) records then ()
-      else Hashtbl.replace recorded loc (num_records + 1, t :: records)
-    in
+    let really_record () = Hashtbl.add recorded loc t in
     match check_location loc with
     | Wellformed -> really_record ()
     | Flipped -> 
@@ -353,6 +339,14 @@ module Annot = struct
           Abstraction.included_sig_identifier_table
 	  id (sitem, ref false (* never recorded in the parent sig yet *))) kids;
       record mty.mty_loc (Str sitem))
+      ()
+
+  let record_include modl (* _sg *) =
+    protect "Spot.Annot.record_include" (fun () ->
+      List.iter (fun sitem -> record modl.mod_loc (Str sitem))
+        (Abstraction.structure_item
+           { str_desc = Typedtree.Tstr_include (modl, [] (* not used *)(*, sg *));
+             str_loc = modl.mod_loc }))
       ()
 
   module IteratorArgument = struct
@@ -458,6 +452,52 @@ module Annot = struct
         | Tsig_class _list -> () (* CR jfuruse *)
         | Tsig_class_type _list -> () (* CR jfuruse *)
 
+    let enter_structure_item item =
+      let loc = item.str_loc in
+      match item.str_desc with
+      | Tstr_eval _ -> ()
+      | Tstr_value _ -> ()
+      | Tstr_primitive (id, _v) -> record loc (Str (Abstraction.Str_value id))
+      | Tstr_type list ->
+          List.iter (fun (id, decl) ->
+            record decl.typ_loc (Str (Abstraction.Str_type id))) list
+      | Tstr_exception (id, _decl) -> record loc (Str (Abstraction.Str_exception id))
+      | Tstr_exn_rebind (id, _p) -> record loc (Str (Abstraction.Str_exception id))
+      | Tstr_module (id, mexpr) -> record_module_expr_def loc id mexpr
+      | Tstr_recmodule list ->
+	  List.iter (fun (id, _mtype, mexpr) ->
+	    record_module_expr_def mexpr.mod_loc id mexpr) list
+      | Tstr_modtype (id, mtype) -> record_module_type_def id mtype
+      | Tstr_open path -> record loc (Use (Kind.Module, path))
+      | Tstr_class _list -> () (* CR jfuruse *)
+      | Tstr_class_type _list -> () (* CR jfuruse *)
+      | Tstr_include (mexpr, _) -> record_include mexpr
+
+    let enter_core_type ct =
+      match ct.ctyp_desc with
+      | Ttyp_any -> ()
+      | Ttyp_var _s -> () (* CR jfuruse: we will be able to work on poly things *) 
+      | Ttyp_arrow _ -> ()
+      | Ttyp_tuple _ -> ()
+      | Ttyp_constr (path, _list) -> record ct.ctyp_loc (Use (Kind.Type, path))
+      | Ttyp_object _list -> ()
+      | Ttyp_class _ -> ()
+      | Ttyp_alias (_ct, _s) -> () (* CR jfuruse: we will be able to work on poly things *) 
+      | Ttyp_variant _ -> ()
+      | Ttyp_poly _ -> ()
+      | Ttyp_package _pack -> ()
+
+    let enter_module_expr mexpr =
+      match mexpr.mod_desc with
+      | Tmod_ident p -> record mexpr.mod_loc (Use (Kind.Module, p))
+      | Tmod_structure _ -> ()
+      | Tmod_functor (id, mtype, mexpr) ->
+          (* CR jfuruse: id should have its position  *) 
+          record (Location_bound.upperbound mexpr.mod_loc mtype.mty_loc) (Functor_parameter id);
+      | Tmod_apply _ -> ()
+      | Tmod_constraint _ -> ()
+      | Tmod_unpack _ -> ()
+
 (*
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
@@ -468,7 +508,6 @@ module Annot = struct
     val enter_signature : signature -> unit
     val enter_modtype_declaration : modtype_declaration -> unit
     val enter_module_type : module_type -> unit
-    val enter_module_expr : module_expr -> unit
     val enter_with_constraint : with_constraint -> unit
     val enter_class_expr : class_expr -> unit
     val enter_class_signature : class_signature -> unit
@@ -478,11 +517,9 @@ module Annot = struct
     val enter_class_infos : 'a class_infos -> unit
     val enter_class_type : class_type -> unit
     val enter_class_type_field : class_type_field -> unit
-    val enter_core_type : core_type -> unit
     val enter_core_field_type : core_field_type -> unit
     val enter_class_structure : class_structure -> unit
     val enter_class_field : class_field -> unit
-    val enter_structure_item : structure_item -> unit
 *)
   end
 
@@ -494,22 +531,6 @@ module Annot = struct
       record loc (Mod_type modl.Typedtree.mod_type))
       ()
 
-  let record_include loc modl sg =
-    protect "Spot.Annot.record_include" (fun () ->
-      List.iter (fun sitem -> record loc (Str sitem))
-        (Abstraction.structure_item
-            (Typedtree.Tstr_include (modl, [] (* not used *), sg))))
-      ()
-
-  let record_module_expr_def loc id modl =
-    protect "Spot.Annot.record_module_expr_def" (fun () ->
-      record loc (Str (Abstraction.Str_module 
-	                  (id, 
-	                  (Abstraction.module_expr modl))));
-      record loc (Mod_type modl.Typedtree.mod_type))
-      ()
-    
-      
 *)
 
   module Iterator = Typedtree.MakeIterator(IteratorArgument)
@@ -529,15 +550,15 @@ module Annot = struct
     | Saved_pattern p -> Iterator.iter_pattern p
     | Saved_class_expr ce -> Iterator.iter_class_expr ce
 
-  let recorded () = Hashtbl.fold (fun k (_,vs) st -> 
-    List.map (fun v -> k,v) vs @ st) recorded []
+  let recorded () = Hashtbl.fold (fun k v st -> (k,v) :: st) recorded []
 
   let recorded_top () = !recorded_top
 end
 
 (* Spot file *)
 module File = struct
-  (* not record but list for future exetensibility *)
+  (* CR jfuruse: Current cmt/cmti only carry saved_types *)
+  (* not record but list for future extensibility *)
   type elem =
     | Argv of string array
     | Source_path of string option (* packed module has None *)
