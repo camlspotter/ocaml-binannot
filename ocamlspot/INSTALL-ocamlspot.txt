@@ -1,0 +1,80 @@
+0. If you have no time to read the following, just try the script in the package:
+  
+    $ ./BRAIN_DEAD_INSTALL.sh
+
+  It will clone the official source of version 3.12.0 in the current directory, then apply the patch, and compile with the default configuration. Jump to 8 for the emacs lisp installation.
+
+1. Ok, you are not brain dead. Download OCaml compiler version 3.12.0:
+
+  - grab it from http://caml.inria.fr/pub/distrib/ocaml-3.12/3.12.0.tar.gz
+  - You can also use the SVN version
+    ( svn checkout http://caml.inria.fr/svn/ocaml/release/3.12.0 )
+
+2. Extract the compiler source.
+
+  - tar zxvf ocaml-3.12.0.tar.gz
+  - cd ocaml-3.12.0                 # do not forget this
+
+3. Extract ocamlspot.tgz and Apply the patch
+
+  - tar zxvf ocamlspotter-3.12.0-1.2.1.tgz
+  - mv ocamlspotter-3.12.0-1.2.1/* .
+  - patch -p1 < compiler_patch.diff
+
+  Check your patched source tree. It should have ocamlspot directory with the original files like INSTALL, LICENSE and VERSION.
+
+4. Build a bytecode compiler
+
+  - ./configure
+  - make core coreboot
+
+5. Manual ocamlbuild bootstrap:
+
+   Do not forget the following after make coreboot:
+
+  - ./build/mixed-boot.sh
+  - cp boot/myocamlbuild boot/myocamlbuild.boot
+
+6. Continue building
+
+  - make world
+  - make opt
+  - make opt.opt
+
+7. Check the patched compiler is compatible with the original
+
+  You can use VERIFY.sh to check that the patched compiler produces the same object files as the orignal compiler.
+
+8. Install it
+
+  - make install
+
+9. Emacs interface
+
+  Write the following into your .emacs:
+
+  ; load-path
+  (setq load-path (cons "WHERE-YOU-HAVE-INSTALLED-THE-ELISP" load-path))
+ 
+  ; set the path of the ocamlspot binary
+  (setq ocamlspot-path "WHERE-YOU-HAVE-INSTALLED-THE-BINARIES/ocamlspot")
+ 
+  ; autoload
+  (autoload 'ocamlspot-query "ocamlspot" "OCamlSpot")
+ 
+  ; tuareg mode hook (use caml-mode-hook instead if you use caml-mode)
+    (add-hook 'tuareg-mode-hook 
+    	  '(lambda ()
+  	     (local-set-key "\C-c;" 'ocamlspot-query)
+  	     (local-set-key "\C-c\C-t" 'ocamlspot-type)
+             (local-set-key "\C-c\C-y" 'ocamlspot-type-and-copy)
+  	     (local-set-key "\C-c\C-u" 'ocamlspot-use)
+  	     (local-set-key "\C-ct" 'caml-types-show-type)))
+ 
+10. How to use
+
+  Compiler your ML project by this patched compiler with -annot option to create .spot files. Open one of the source files in Emacs and place the cursor at the name whose definition is in question. Type C-c; will show you the defintion.
+
+11. bug report
+
+  Please report bugs to jun.furuse at gmail.

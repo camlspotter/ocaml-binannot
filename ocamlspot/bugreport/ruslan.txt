@@ -1,0 +1,18 @@
+1. There is a bug in the emacs configuration, one of the lines should read
+something like:
+
+ ;; load path
+ (setq load-path (cons "/usr/local/lib/ocaml/ocamlspot/" load-path))
+
+2. The folder ocamlspotter-1.05/ocamlspot is required when compiling and
+should be copied to the ocaml-3.11.1 root folder. Is this what you mean when you say
+
+  - check the directory ocamlspot exists
+
+in the INSTALL-... file?
+
+3. After compiling, the folder ocaml-3.11.1/ocamlspot should be automatically copied to
+whatever place ocaml was installed.
+
+I hope this comments are useful for your next release.
+

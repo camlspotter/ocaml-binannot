@@ -1,0 +1,105 @@
+1.2.0
+--------------
+
+- For OCaml 3.12.0
+- Code cleanups
+
+1.1
+-----
+
+Bug fix
+
+- if x.spot file was obsolete, ocamlspot searched x.spit file instead, 
+  which was not a correct behavior.
+- exceptions in pattern were not browsable.
+- ocamldoc recorded top structures.
+- fix for predefined exception
+
+New feature
+
+- added -n option which does not analyze definition position.
+- ocamlspot-type function is added for type query in ocamlspot.el
+- ocamlspot-use function is added for use query in ocamlspot.el
+- supports a new position format l<line>c<column in bytes> 
+- supports a new query file:kind:path
+- more spots are saved
+- Work around for ocamlbuild. If .ocamlspot file with the text build_dir=dirname
+  is placed in a directory $DIR, then spot files of source files under $DIR 
+  ex. $DIR/subdir/source.ml is searched in $DIR/dirname/subdir/. See an example
+  at camlp4/.ocamlspot
+
+
+ocamlspot.el
+* ocamlspot-path is now ocamlspot-command. Please fix your .emacs.
+- defcustom'ed and code clean-ups (thanks to Sam Steingold) 
+- various elisp bug fixes
+- multi-byte character support in emacs
+
+1.0
+---
+
+Complete rewrite.
+
+beta3
+-----
+
+Clean-ups:
+- Annotation data type simplification
+
+Features:
+- Spot file version number is introduced
+- New browsables:
+    - Data type names to their type defs
+    - Module names to their defs (preliminary support)
+
+beta2p1
+-------
+
+Features:
+- New browsables: variants and record labels to their type defs
+
+beta2:
+------
+
+Complete rewrite.
+
+Features:
+- Enhanced spot file search: if ocamlspot finds no .spot in the load paths 
+  but the corresponding symlinked .cmi, it also searches the .spot file 
+  in the linked directory. 
+
+beta1:
+------
+
+Clean-up and announce.
+
+alpha3:
+-------
+
+Features:
+- File time stamp check
+- .spot file versioning
+
+alpha2:
+-------
+
+Features:
+- Support spotting externals.
+- Enhanced elisp display
+- ocamlopt creates .annot and .spot too
+
+Performance:
+- Things are evaluated more lazily.
+
+Clean-up:
+- Less verbose messages.
+- Removed unnecessary files
+
+Bug-fixes:
+- Location order was mis-defined.
+
+alpha1:
+-------
+
+The first release
+
