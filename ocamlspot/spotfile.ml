@@ -137,7 +137,12 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         | None -> failwith "no source path found"
       in
 *)
-      let source_path = Some path in
+      let source_path = 
+        match Filename.split_extension path with
+        | body, ".cmt" -> Some (body ^ ".ml")
+        | body, ".cmti" -> Some (body ^ ".mli")
+        | _ -> None
+      in
       (* fix source_path *)
       let source_path =
         match source_path with
