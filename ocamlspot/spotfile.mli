@@ -32,9 +32,9 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
   (* loaded file *)    
   type file = {
     path : string; (* "" means no source *)
-(*
     cwd : string;
     load_paths : string list;
+(*
     version : string * string;
     argv : string array;
 *)

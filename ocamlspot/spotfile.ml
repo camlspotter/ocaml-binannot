@@ -27,9 +27,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   type file = {
     path : string; (* "" means no source *)
-(*
     cwd : string;
     load_paths : string list;
+(*
     version : string * string;
     argv : string array;
 *)
@@ -40,18 +40,20 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     id_def_regions : (Ident.t, Region.t) Hashtbl.t;
   }
 
-(*
   let dump_file file =
+(*
     Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
+*)
+    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ ... }@]@."
       (match file.path with 
       | "" -> "NONE"
       | s -> s)
       file.cwd
       (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) file.load_paths
+(*
       (fst file.version) (snd file.version)
       (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
 *)
-  let dump_file _file = Format.eprintf "{ NO DUMP }@."  (* CR jfuruse *)
 
   (* xxx.{ml,cmo,cmx,cmt} => xxx.cmt
      xxx.{mli,cmi,cmti} => xxx.cmti
@@ -135,7 +137,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         | None -> failwith "no source path found"
       in
 *)
-      let source_path = None in
+      let source_path = Some path in
       (* fix source_path *)
       let source_path =
         match source_path with
@@ -156,12 +158,16 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         | Some cwd -> cwd
         | None -> failwith "no cwd found"
       in
+*)
+      let cwd = "." in
+(*
       let load_paths =
         match List.find_map_opt (function Load_paths v -> Some v | _ -> None) file with
         | Some load_paths -> load_paths
         | None -> failwith "no load paths found"
       in
 *)
+      let load_paths = ["."] in
       let top = 
         match Annot.recorded_top () with
         | None -> []
@@ -218,9 +224,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       in
       { (* version = version; *)
         path = source_path;
-(*
         cwd = cwd;
         load_paths = List.map (fun load_path -> cwd ^/ load_path) load_paths;
+(*
         argv = argv;
 *)
         top = top;
@@ -348,14 +354,14 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   let empty_env file =
     { Env.path = file.path;
-      cwd = "CR jfuruse"; (* file.cwd; *) (* CR jfuruse *)
-      load_paths = ["CR jfurues"]; (* file.load_paths; *)
+      cwd = "."; (* file.cwd; *) (* CR jfuruse *)
+      load_paths = ["."]; (* file.load_paths; *)
       binding = Binding.empty }
 
   let invalid_env file =
     { Env.path = file.path;
-      cwd = "CR jfuruse"; (* file.cwd; *)
-      load_paths = ["CR jfuruse"]; (* file.load_paths; *)
+      cwd = "."; (* file.cwd; *)
+      load_paths = ["."]; (* file.load_paths; *)
       binding = Binding.invalid }
       
   type result =
