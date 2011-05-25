@@ -15,6 +15,7 @@ sub check_file_head {
     my $file = $_[0];
     open(INH, $file);
     my $head = <INH>;
+    while(<INH>){}
     close INH;
     if( $head =~ /\(\*\s*([^\*]+)\s*\*\)/ ){
         my $result = $1;
@@ -124,6 +125,7 @@ sub test {
                 last;
             }
 	}
+	while(<IN>){}
 	close IN;
 	if( ! $tested ){
 	    print STDERR "$file:$test_pos:$test_name:\tNOT FOUND!\n";
