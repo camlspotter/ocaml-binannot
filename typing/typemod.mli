@@ -26,13 +26,12 @@ val type_implementation:
         string -> string -> string -> Env.t -> Parsetree.structure ->
                                Typedtree.structure * Typedtree.module_coercion
 val transl_signature:
-        Env.t -> Parsetree.signature -> Typedtree.signature
+        string -> string -> Env.t -> Parsetree.signature -> Typedtree.signature
+
 val check_nongen_schemes:
         Env.t -> Typedtree.structure_item list -> unit
 
 val simplify_signature: signature -> signature
-
-val save_signature : Typedtree.signature -> string -> unit
 
 val package_units:
         string list -> string -> string -> Typedtree.module_coercion

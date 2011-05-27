@@ -1171,11 +1171,22 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     end
   end
 
-let save_signature tsg outputprefix =
-  if !Clflags.annotations then
-    let oc = open_out (outputprefix ^ ".cmti") in
-    output_value oc [| Saved_signature tsg |];
-    close_out oc
+let transl_signature _sourcefile outputprefix initial_env sg =
+  try
+    let tsg = transl_signature initial_env sg in
+    if !Clflags.annotations && not !Clflags.print_types then begin
+      let oc = open_out (outputprefix ^ ".cmti") in
+      output_value oc [| Saved_signature tsg |];
+      close_out oc;
+    end;
+    tsg
+  with e ->
+    if !Clflags.annotations && not !Clflags.print_types then begin
+      let oc = open_out (outputprefix ^ ".cmti") in
+      output_value oc (Array.of_list (Typedtree.get_saved_types ()));
+      close_out oc;
+    end;
+    raise e
 
 let type_implementation sourcefile outputprefix modulename initial_env ast =
   try
