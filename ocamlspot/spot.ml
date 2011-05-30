@@ -491,7 +491,7 @@ module Annot = struct
       match mexpr.mod_desc with
       | Tmod_ident p -> record mexpr.mod_loc (Use (Kind.Module, p))
       | Tmod_structure _ -> ()
-      | Tmod_functor (id, mtype, mexpr) ->
+      | Tmod_functor (id, mtype, _mexpr) ->
           (* CR jfuruse: id should have its position  *) 
           record (Location_bound.upperbound mexpr.mod_loc mtype.mty_loc) (Functor_parameter id);
       | Tmod_apply _ -> ()
