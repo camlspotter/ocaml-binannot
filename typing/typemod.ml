@@ -1171,12 +1171,30 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     end
   end
 
-let transl_signature _sourcefile outputprefix initial_env sg =
+(* CR jfuruse: Bad place of definition. Move it somewhere more appropriate *)
+type command_context = {
+  argv : string array;
+  sourcefile: string;
+  cwd : string;
+  load_path : string list;
+}
+
+let save_command_context oc sourcefile =
+  output_value oc { argv = Sys.argv;
+                    sourcefile = sourcefile;
+                    cwd = Sys.getcwd ();
+                    load_path = !Config.load_path }
+
+let load_command_context ic : command_context =
+  input_value ic
+
+let transl_signature sourcefile outputprefix initial_env sg =
   try
     let tsg = transl_signature initial_env sg in
     if !Clflags.annotations && not !Clflags.print_types then begin
       let oc = open_out (outputprefix ^ ".cmti") in
       output_value oc [| Saved_signature tsg |];
+      save_command_context oc sourcefile;
       close_out oc;
     end;
     tsg
@@ -1184,6 +1202,7 @@ let transl_signature _sourcefile outputprefix initial_env sg =
     if !Clflags.annotations && not !Clflags.print_types then begin
       let oc = open_out (outputprefix ^ ".cmti") in
       output_value oc (Array.of_list (Typedtree.get_saved_types ()));
+      save_command_context oc sourcefile;
       close_out oc;
     end;
     raise e
@@ -1192,10 +1211,12 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
   try
     Typedtree.set_saved_types [];
     let (str, coercion) = type_implementation sourcefile outputprefix modulename initial_env ast in
+    (* CR jfuruse: I think the code for saving types should be in driver, not in  typing *)
     if !Clflags.annotations then begin
         Typedtree.set_saved_types [];
         let oc = open_out (outputprefix ^ ".cmt") in
         output_value oc [| Saved_implementation str |];
+        save_command_context oc sourcefile;
         close_out oc;
 (*
         let oc = open_out (outputprefix ^ "_ast2src.ml") in
@@ -1217,6 +1238,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
       if !Clflags.annotations then begin
           let oc = open_out (outputprefix ^ ".cmt") in
           output_value oc (Array.of_list (Typedtree.get_saved_types ()));
+          save_command_context oc sourcefile;
           close_out oc;
         end;
       Typedtree.set_saved_types  [];
