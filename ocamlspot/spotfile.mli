@@ -36,8 +36,8 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
     load_paths : string list;
 (*
     version : string * string;
-    argv : string array;
 *)
+    argv : string array;
     top : Abstraction.structure;
     flat : Abstraction.structure;
     rannots : Annot.t Regioned.t list;

@@ -31,8 +31,8 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     load_paths : string list;
 (*
     version : string * string;
-    argv : string array;
 *)
+    argv : string array;
     top : Abstraction.structure;
     flat : Abstraction.structure;
     rannots : Annot.t Regioned.t list;
@@ -44,7 +44,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 (*
     Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
 *)
-    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ ... }@]@."
+    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |]; ... }@]@."
       (match file.path with 
       | "" -> "NONE"
       | s -> s)
@@ -52,8 +52,8 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) file.load_paths
 (*
       (fst file.version) (snd file.version)
-      (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
 *)
+      (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
 
   (* xxx.{ml,cmo,cmx,cmt} => xxx.cmt
      xxx.{mli,cmi,cmti} => xxx.cmti
@@ -111,80 +111,56 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
           (List.map (fun d -> 
             Filename.concat d source_base) source_dirs)
 
-    let load_cmt_file path : Typedtree.saved_type array = 
+    module Context = struct
+      (* CR jfuruse: dup in typemod *)
+      type command_context = {
+        argv : string array;
+        sourcefile: string;
+        cwd : string;
+        load_path : string list;
+      }
+    end
+
+    let load_cmt_file path : Typedtree.saved_type array * Context.command_context = 
       let ic = open_in path in
-      let (types : Typedtree.saved_type array) = input_value ic in
+      let types : Typedtree.saved_type array = input_value ic in
+      let context : Context.command_context = input_value ic in
       close_in ic;
-      types
+      types, context
 
     let load_directly path : file =
       Debug.format "spot loading from %s@." path;
-      let file = load_cmt_file path in
+      let file, context = load_cmt_file path in
       Array.iter Annot.record_saved_type file;
       let rannots = 
         List.map (fun (loc, annot) ->
           { Regioned.region = Region.of_parsing loc;
             value = annot }) (Annot.recorded ())
       in
-(* CR jfuruse: TODO
-      let source_path =
-        match 
-          List.find_map_opt 
-            (function Source_path v -> Some v | _ -> None) 
-            file 
-        with
-        | Some source_path -> source_path
-        | None -> failwith "no source path found"
-      in
-*)
       let source_path = 
-        match Filename.split_extension path with
-        | body, ".cmt" -> Some (body ^ ".ml")
-        | body, ".cmti" -> Some (body ^ ".mli")
-        | _ -> None
+        if Filename.is_relative context.Context.sourcefile then
+          Filename.concat context.Context.cwd context.Context.sourcefile 
+        else context.Context.sourcefile
       in
       (* fix source_path *)
       let source_path =
-        match source_path with
-        | None -> ""
-        | Some source_path ->
-            if Sys.file_exists source_path then source_path
-            else
-              try 
-                let path = find_alternative_source ~spot:path source_path in
-                Debug.format "Found an alternative source: %s@." path;
-                path
-              with
-              | Not_found -> source_path
+        if Sys.file_exists source_path then source_path
+        else
+          try 
+            let path = find_alternative_source ~spot:path source_path in
+            Debug.format "Found an alternative source: %s@." path;
+            path
+          with
+          | Not_found -> source_path
       in
-(*
-      let cwd = 
-        match List.find_map_opt (function Cwd v -> Some v | _ -> None) file with
-        | Some cwd -> cwd
-        | None -> failwith "no cwd found"
-      in
-*)
-      let cwd = "." in
-(*
-      let load_paths =
-        match List.find_map_opt (function Load_paths v -> Some v | _ -> None) file with
-        | Some load_paths -> load_paths
-        | None -> failwith "no load paths found"
-      in
-*)
-      let load_paths = ["."] in
+      let cwd = context.Context.cwd in
+      let load_paths = context.Context.load_path in (* CR jfuruse: load_path and file.load_paths are confusing *)
       let top = 
         match Annot.recorded_top () with
         | None -> []
         | Some top -> top
       in
-(*
-      let argv =
-        match List.find_map_opt (function Argv v -> Some v | _ -> None) file with
-        | Some argv -> argv
-        | None -> failwith "no argv found"
-      in
-*)
+      let argv = context.Context.argv in
       let tree =
         lazy begin
           List.fold_left Tree.add Tree.empty rannots
@@ -195,12 +171,12 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         List.iter (fun { Regioned.region = loc; value = annot } ->
           match annot with
           | Annot.Str ( Abstraction.Str_value id
-            | Abstraction.Str_type id
-            | Abstraction.Str_exception id
-            | Abstraction.Str_modtype (id, _)
-            | Abstraction.Str_class id
-            | Abstraction.Str_cltype id   
-            | Abstraction.Str_module (id, _) )  ->
+                          | Abstraction.Str_type id
+                          | Abstraction.Str_exception id
+                          | Abstraction.Str_modtype (id, _)
+                          | Abstraction.Str_class id
+                          | Abstraction.Str_cltype id   
+                          | Abstraction.Str_module (id, _) )  ->
               Hashtbl.add tbl id loc
           | Annot.Str ( Abstraction.Str_include _ ) -> ()
           | Annot.Functor_parameter id ->
@@ -231,9 +207,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         path = source_path;
         cwd = cwd;
         load_paths = List.map (fun load_path -> cwd ^/ load_path) load_paths;
-(*
         argv = argv;
-*)
         top = top;
         flat = flat;
         rannots = rannots;
@@ -271,39 +245,38 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                   failwith (Printf.sprintf "failed to find spot file %s" path)
 
     let find_in_path load_paths body ext =
-        let body_ext = body ^ ext in
+      let body_ext = body ^ ext in
       let find_in_path load_paths name = 
         try Misc.find_in_path load_paths name with Not_found ->
           Misc.find_in_path_uncap load_paths name
       in
       try find_in_path load_paths body_ext with Not_found ->
-      (* We do not give up yet.
-         .spot file is not found, 
-         but we still find a .cmi which is sym-linked to the original directory with .spot
-      *)
-      let cminame = body ^ ".cmi" in
+        (* We do not give up yet.
+           .cmt file is not found, but we may still find a .cmi which is sym-linked to the original directory 
+           where .cmt file exists
+        *)
+        let cminame = body ^ ".cmi" in
         try
-        let cmipath = find_in_path load_paths cminame in
-        let stat = Unix.lstat cmipath in
-        if stat.Unix.st_kind = Unix.S_LNK then begin
-          let cmipath = Filename.dirname cmipath ^/ Unix.readlink cmipath in
-          let spotpath = Filename.chop_extension cmipath ^ ext in
-          if Sys.file_exists spotpath then begin
-            Debug.format "Found an alternative %s: %s@." ext spotpath;
+          let cmipath = find_in_path load_paths cminame in
+          let stat = Unix.lstat cmipath in
+          if stat.Unix.st_kind = Unix.S_LNK then begin
+            let cmipath = Filename.dirname cmipath ^/ Unix.readlink cmipath in
+            let spotpath = Filename.chop_extension cmipath ^ ext in
+            if Sys.file_exists spotpath then begin
+              Debug.format "Found an alternative %s: %s@." ext spotpath;
               spotpath 
-            end else failwith (Printf.sprintf "spot file not found: %s, neither in %s" body_ext spotpath)
+            end else failwith (Printf.sprintf "saved typed tree file not found: %s, neither in %s" body_ext spotpath)
           end else raise Not_found
         with
         | (Failure _ as e) -> raise e
-        | _ -> failwith (Printf.sprintf "spot file not found: %s" body_ext)
+        | _ -> failwith (Printf.sprintf "saved typed tree file not found: %s" body_ext)
       
 
     let load ~load_paths spotname : file =
       Debug.format "@[<2>spot searching %s in@ paths [@[%a@]]@]@." 
-          spotname
-          (Format.list "; " (fun ppf x -> Format.fprintf ppf "%S" x)) 
-          load_paths;
-        let body, ext = Filename.split_extension spotname in
+        spotname
+        (Format.list "; " (fun ppf x -> Format.fprintf ppf "%S" x)) load_paths;
+      let body, ext = Filename.split_extension spotname in
       let path = find_in_path load_paths body ext in
       load_directly_with_cache path
 
@@ -359,14 +332,14 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   let empty_env file =
     { Env.path = file.path;
-      cwd = "."; (* file.cwd; *) (* CR jfuruse *)
-      load_paths = ["."]; (* file.load_paths; *)
+      cwd = file.cwd;
+      load_paths = file.load_paths;
       binding = Binding.empty }
 
   let invalid_env file =
     { Env.path = file.path;
-      cwd = "."; (* file.cwd; *)
-      load_paths = ["."]; (* file.load_paths; *)
+      cwd = file.cwd;
+      load_paths = file.load_paths;
       binding = Binding.invalid }
       
   type result =

@@ -498,6 +498,17 @@ module Annot = struct
       | Tmod_constraint _ -> ()
       | Tmod_unpack _ -> ()
 
+    let enter_module_type mty = 
+      let loc = mty.mty_loc in
+      match mty.mty_desc with
+      | Tmty_ident path -> record loc (Use (Kind.Module_type, path))
+      | Tmty_signature _ -> ()
+      | Tmty_functor (id, mtype1, _mtype2) ->
+          record (Location_bound.upperbound loc mtype1.mty_loc) (Functor_parameter id)
+      | Tmty_with (_, _list) -> (* CR jfuruse: list has paths, but no location *)
+          ()
+      | Tmty_typeof _ -> ()
+    
 (*
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
@@ -507,7 +518,6 @@ module Annot = struct
     val enter_package_type : package_type -> unit
     val enter_signature : signature -> unit
     val enter_modtype_declaration : modtype_declaration -> unit
-    val enter_module_type : module_type -> unit
     val enter_with_constraint : with_constraint -> unit
     val enter_class_expr : class_expr -> unit
     val enter_class_signature : class_signature -> unit
@@ -558,6 +568,7 @@ end
 (* Spot file *)
 module File = struct
   (* CR jfuruse: Current cmt/cmti only carry saved_types *)
+  (* CR jfuruse: no longer used *)
   (* not record but list for future extensibility *)
   type elem =
     | Argv of string array
