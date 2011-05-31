@@ -1,0 +1,68 @@
+command.cmi:
+pathreparse.cmi: spotapi.cmi ../typing/path.cmi
+spot.cmi: ../typing/types.cmi ../typing/typedtree.cmi ../typing/path.cmi \
+    ../typing/ident.cmi
+spotapi.cmi: ../typing/types.cmi ../typing/typedtree.cmi spot.cmi \
+    ../typing/path.cmi ../typing/ident.cmi
+spotconfig.cmi: spotconfig_intf.cmo
+spoteval.cmi: utils.cmi ../typing/types.cmi spotapi.cmi ../typing/path.cmi \
+    ../typing/ident.cmi
+spotfile.cmi: ../typing/typedtree.cmi spoteval.cmi spotconfig_intf.cmo \
+    spotapi.cmi spot.cmi ../typing/path.cmi ../typing/ident.cmi \
+    ../typing/env.cmi ../typing/annot.cmi
+treeset.cmi: xset.cmi
+utils.cmi:
+xmain.cmi:
+xset.cmi:
+command.cmo: command.cmi
+command.cmx: command.cmi
+dotfile.cmo:
+dotfile.cmx:
+ocamlspot.cmo: xmain.cmi utils.cmi spotfile.cmi spoteval.cmi spotconfig.cmi \
+    spotapi.cmi ../typing/printtyp.cmi ../typing/path.cmi ../typing/ident.cmi \
+    ../typing/env.cmi ../typing/annot.cmi
+ocamlspot.cmx: xmain.cmx utils.cmx spotfile.cmx spoteval.cmx spotconfig.cmx \
+    spotapi.cmx ../typing/printtyp.cmx ../typing/path.cmx ../typing/ident.cmx \
+    ../typing/env.cmx ../typing/annot.cmi
+pathreparse.cmo: utils.cmi spotapi.cmi ../typing/path.cmi ../typing/ident.cmi \
+    pathreparse.cmi
+pathreparse.cmx: utils.cmx spotapi.cmx ../typing/path.cmx ../typing/ident.cmx \
+    pathreparse.cmi
+spot.cmo: utils.cmi ../typing/types.cmi ../typing/typedtree.cmi \
+    ../typing/printtyp.cmi ../typing/path.cmi ../typing/mtype.cmi \
+    ../typing/ident.cmi ../typing/ctype.cmi spot.cmi
+spot.cmx: utils.cmx ../typing/types.cmx ../typing/typedtree.cmx \
+    ../typing/printtyp.cmx ../typing/path.cmx ../typing/mtype.cmx \
+    ../typing/ident.cmx ../typing/ctype.cmx spot.cmi
+spotapi.cmo: utils.cmi ../typing/types.cmi treeset.cmi spot.cmi \
+    ../typing/printtyp.cmi ../typing/predef.cmi ../typing/path.cmi \
+    ../typing/ident.cmi ../typing/btype.cmi ../typing/annot.cmi spotapi.cmi
+spotapi.cmx: utils.cmx ../typing/types.cmx treeset.cmx spot.cmx \
+    ../typing/printtyp.cmx ../typing/predef.cmx ../typing/path.cmx \
+    ../typing/ident.cmx ../typing/btype.cmx ../typing/annot.cmi spotapi.cmi
+spotconfig.cmo: utils.cmi spoteval.cmi spotapi.cmi ../typing/path.cmi \
+    spotconfig.cmi
+spotconfig.cmx: utils.cmx spoteval.cmx spotapi.cmx ../typing/path.cmx \
+    spotconfig.cmi
+spotconfig_intf.cmo: spotapi.cmi
+spotconfig_intf.cmx: spotapi.cmx
+spoteval.cmo: utils.cmi ../typing/types.cmi spotapi.cmi ../typing/predef.cmi \
+    ../typing/path.cmi ../typing/ident.cmi spoteval.cmi
+spoteval.cmx: utils.cmx ../typing/types.cmx spotapi.cmx ../typing/predef.cmx \
+    ../typing/path.cmx ../typing/ident.cmx spoteval.cmi
+spotfile.cmo: utils.cmi ../typing/typedtree.cmi spoteval.cmi \
+    spotconfig_intf.cmo spotapi.cmi spot.cmi ../typing/path.cmi \
+    ../typing/ident.cmi ../typing/env.cmi dotfile.cmo ../typing/annot.cmi \
+    spotfile.cmi
+spotfile.cmx: utils.cmx ../typing/typedtree.cmx spoteval.cmx \
+    spotconfig_intf.cmx spotapi.cmx spot.cmx ../typing/path.cmx \
+    ../typing/ident.cmx ../typing/env.cmx dotfile.cmx ../typing/annot.cmi \
+    spotfile.cmi
+treeset.cmo: xset.cmi treeset.cmi
+treeset.cmx: xset.cmx treeset.cmi
+utils.cmo: utils.cmi
+utils.cmx: utils.cmi
+xmain.cmo: xmain.cmi
+xmain.cmx: xmain.cmi
+xset.cmo: xset.cmi
+xset.cmx: xset.cmi
