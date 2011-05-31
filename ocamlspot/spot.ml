@@ -11,6 +11,9 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(* CR jfuruse: now this module becomes very big after merging spot and spotapi.
+   Need to be refactored *)
+
 open Utils
 
 module Name = struct
@@ -18,7 +21,9 @@ module Name = struct
 
   let create name = function
     | -1 -> Printf.sprintf "%s__G" name
-    | n -> Printf.sprintf "%s__%d" name n
+    | -2 -> Printf.sprintf "%s__X" name (* a dirty hack *)
+    | n when n >= 0 -> Printf.sprintf "%s__%d" name n
+    | _ -> assert false
   ;;
 
   let parse s =
@@ -623,11 +628,11 @@ module Abstraction = struct
               begin match exported_ids with
               | [] -> assert false
               | id'::exported_ids' ->
-                  assert (Ident.name id = Ident.name id');
+                  assert (Ident0.name id = Ident0.name id'); (* Not Ident.name! *)
                   (k, id') :: fix_kid exported_ids' kids
               end
           | ((Kind.Type | Kind.Module_type | Kind.Class_type as k), id) :: kids ->
-              (k, id) :: fix_kid exported_ids kids
+              (k, Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)) :: fix_kid exported_ids kids
         in
         fix_kid exported_value_ids (List.map kident_of_sigitem sg)
 
