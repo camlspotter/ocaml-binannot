@@ -8,6 +8,3 @@ module N = struct
 end
 
 let _ = (N.v (* ? v *) : N.t (* ? t *) )
-
-
-

@@ -1,8 +1,6 @@
-(* S => *)
-module type S = sig
+module type S = (* S => *) sig (* CR jfuruse: No way to include S itself... *)
   type (* elt => *) elt (* <= elt *)
-end
-(* <= S *)
+end (* <= S *)
 
 module type T = S (* ? S *) 
   with type elt (* ? elt_impos *) = int 
