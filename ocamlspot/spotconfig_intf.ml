@@ -1,3 +1,16 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                            OCamlSpotter                             *)
+(*                                                                     *)
+(*                             Jun FURUSE                              *)
+(*                                                                     *)
+(*   Copyright 2008-2011 Jun Furuse. All rights reserved.              *)
+(*   This file is distributed under the terms of the GNU Library       *)
+(*   General Public License, with the special exception on linking     *)
+(*   described in file LICENSE.                                        *)
+(*                                                                     *)
+(***********************************************************************)
+
 module type S = sig
   val app_version : string
   
@@ -21,16 +34,16 @@ module type S = sig
   
   module SearchSpec : sig
     type t =
-      | Pos of Spotapi.Position.t
-      | Kind of Spotapi.Kind.t * Spotapi.Path.t
+      | Pos of Spot.Position.t
+      | Kind of Spot.Kind.t * Spot.Path.t
     val parse : string -> string * t
     val to_string : t -> string
   end
   
   val mode : [ `Dump of string
              | `Query of string * SearchSpec.t
-  	   | `Use of (string * SearchSpec.t) * string list
-  	   | `Recheck of string list
-  	   | `Typecheck of string list ]
+  	     | `Use of (string * SearchSpec.t) * string list
+  	     | `Recheck of string list
+  	     | `Typecheck of string list ]
 end
 

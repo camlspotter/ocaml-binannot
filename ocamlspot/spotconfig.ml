@@ -16,7 +16,7 @@
 open Format
 open Utils
 
-open Spotapi
+open Spot
 open Spoteval
 
 let app_version = "2.0.0"

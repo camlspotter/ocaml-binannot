@@ -16,6 +16,7 @@ functor.cmo \
 functor_parameter.cmo \
 immediate_include.cmo \
 include.cmo \
+include2.cmo \
 include_functor_app.cmo \
 include_override.cmo \
 included_and_flat.cmo \
@@ -37,10 +38,7 @@ object.cmo \
 ocaml312.cmo \
 open.cmo \
 open_in_mli.cmi \
-open_pack.cmo \
 override_x.cmo \
-packed.cmo \
-packed_alias.cmo \
 pathname.cmo \
 perv.cmo \
 primitive.cmo \
@@ -68,8 +66,6 @@ test17.cmo \
 test18.cmo \
 test19.cmo \
 test24.cmo \
-test3.cmo \
-test5.cmo \
 test7.cmo \
 test8.cmo \
 test9.cmo \

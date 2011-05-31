@@ -11,7 +11,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Spotapi
+open Spot
 open Utils
 
 module PIdent : sig

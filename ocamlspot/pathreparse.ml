@@ -16,8 +16,6 @@ module Path0 = Path
 
 open Utils
 
-open Spotapi
-
 open Parsetree
 open Lexing
 

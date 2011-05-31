@@ -19,7 +19,7 @@ open Utils
 (* Keep the original modules *)
 module Ident0 = Ident
 
-open Spotapi
+open Spot
 open Spoteval
     
 module Make(Spotconfig : Spotconfig_intf.S) = struct

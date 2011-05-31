@@ -22,7 +22,7 @@ end
 (* Keep the original modules *)
 module Ident0 = Ident
 
-open Spotapi
+open Spot
 
 module PIdent = struct
   type t = {

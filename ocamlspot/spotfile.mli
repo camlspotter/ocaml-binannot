@@ -11,7 +11,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Spotapi
+open Spot
 open Spoteval
 
 module Make( Spotconfig : Spotconfig_intf.S ) : sig
