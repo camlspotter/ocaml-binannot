@@ -40,7 +40,7 @@ OTHERS=../otherlibs
 # Requires unix!
 COMPFLAGS= $(INCLUDES_DEP) -I $(OTHERS)/unix
 
-MODULES= utils dotfile xset treeset command spotapi spot \
+MODULES= utils dotfile xset treeset command spot \
 	spoteval spotconfig_intf spotconfig spotfile xmain ocamlspot
 
 UTILS=utils/misc utils/tbl utils/config \
