@@ -265,11 +265,11 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
             if Sys.file_exists spotpath then begin
               Debug.format "Found an alternative %s: %s@." ext spotpath;
               spotpath 
-            end else failwith (Printf.sprintf "saved typed tree file not found: %s, neither in %s" body_ext spotpath)
+            end else failwith (Printf.sprintf "saved typedtree file not found: %s, neither in %s" body_ext spotpath)
           end else raise Not_found
         with
         | (Failure _ as e) -> raise e
-        | _ -> failwith (Printf.sprintf "saved typed tree file not found: %s" body_ext)
+        | _ -> failwith (Printf.sprintf "saved typedtree file not found: %s" body_ext)
       
 
     let load ~load_paths spotname : file =
@@ -312,12 +312,12 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
     (* CR jfuruse: searching algorithm must be reconsidered *)        
     let load_module ?(spit=false) ~load_paths name =
-      let spotname = name ^ if spit then ".spit" else ".spot" in
+      let spotname = name ^ if spit then ".cmit" else ".cmt" in
       try
         load ~load_paths spotname
       with
       | Failure s ->
-          let spitname = name ^ if spit then ".spot" else ".spit" in
+          let spitname = name ^ if spit then ".cmt" else ".cmit" in
           Format.printf "%s load failed. Try to load %s@."
             spotname spitname;
           try
