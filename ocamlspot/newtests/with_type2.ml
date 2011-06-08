@@ -1,8 +1,6 @@
-(* S => *)
-module type S = sig
+module type S = (* S => *) sig
   type (* elt => *) elt (* <= elt *)
-end
-(* <= S *)
+end (* <= S *)
 
 module X = struct
   type t

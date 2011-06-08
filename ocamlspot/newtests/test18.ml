@@ -2,7 +2,7 @@ type (* constr E => *) t = E (* <= constr E *)
 
 module E = struct let (* module E => *) x (* <= module E *) = 1 end
 
-(* modtype E => *) module type E = sig val x : int end (* <= modtype E *) 
+module type E = (* modtype E => *) sig val x : int end (* <= modtype E *) 
 
 let _ = E (* ? constr E *)
 

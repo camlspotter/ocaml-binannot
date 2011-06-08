@@ -1,9 +1,7 @@
-(* S => *)
-module type S = sig
+module type S = (* S => *) sig
   type t
   val x : t list
-end
-(* <= S *)
+end (* <= S *)
 
 (* M => *)
 module M : S (* ? S *) with type t = int = struct
