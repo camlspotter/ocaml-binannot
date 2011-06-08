@@ -1724,7 +1724,8 @@ let rec type_exp env sexp =
   | Pexp_open (lid, e) ->
       let (path, newenv) = !type_open env sexp.pexp_loc lid in
       let exp = type_exp newenv e in
-      re { exp with exp_desc = Texp_open (path, exp); }
+      re { exp with exp_desc = Texp_open (path, exp); 
+                    exp_loc = sexp.pexp_loc }
   
 and type_label_exp create env loc ty (lid, sarg) =
   let (path, label) = Typetexp.find_label env sarg.pexp_loc lid in
