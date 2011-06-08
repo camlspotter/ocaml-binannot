@@ -30,29 +30,27 @@ COMPFLAGS= $(INCLUDES_DEP) -I $(OTHERS)/unix
 
 include Makefile.targets
 
-all: $(TARGETS)
+all: test2.cmo $(TARGETS) 
 
-# all: test2.cmo $(TARGETS) 
-# 
-# pack.cmo: packed.cmo
-# 	$(OCAMLC) -pack -o $@ $<
-# 
-# packed_alias.cmo: pack.cmo
-# 
-# test2.cmo: test.cmo
-# 	$(OCAMLC) -pack -o $@ $<
-# 
-# dir1/test4.cmo: dir1/test4.ml
-# 	$(OCAMLC) -c -I dir1 -o $@ $<
-# 
-# test5.cmo: test5.ml
-# 	$(OCAMLC) -c -I dir1 -o $@ $<
-# 
-# dir2/test6.cmo: dir2/test6.ml
-#	$(OCAMLC) -c -I dir2 -o $@ $<
+pack.cmo: packed.cmo
+	$(OCAMLC) -pack -o $@ $<
+
+packed_alias.cmo: pack.cmo
+
+test2.cmo: test.cmo
+	$(OCAMLC) -pack -o $@ $<
+
+dir1/test4.cmo: dir1/test4.ml
+	$(OCAMLC) -c -I dir1 -o $@ $<
+
+test5.cmo: test5.ml
+	$(OCAMLC) -c -I dir1 -o $@ $<
+
+dir2/test6.cmo: dir2/test6.ml
+	$(OCAMLC) -c -I dir2 -o $@ $<
 
 clean:
-	rm -f *.cm* *.o *.annot *.sp*t  */*.cm* */*.annot */*.sp*t
+	rm -f *.cm* *.o *.annot *.sp*t  */*.cm* */*.annot
 
 # generic rules :
 #################

@@ -33,6 +33,8 @@ immediate_include.cmo:
 immediate_include.cmx:
 include.cmo:
 include.cmx:
+include2.cmo:
+include2.cmx:
 include_functor_app.cmo:
 include_functor_app.cmx:
 include_override.cmo:
@@ -67,14 +69,24 @@ module_use.cmo:
 module_use.cmx:
 multiple_definition.cmo:
 multiple_definition.cmx:
+new_letmodule.cmo:
+new_letmodule.cmx:
+new_var_in_open_module.cmo:
+new_var_in_open_module.cmx:
 object.cmo:
 object.cmx:
 ocaml312.cmo:
 ocaml312.cmx:
 open.cmo: target.cmo
 open.cmx: target.cmx
+open_pack.cmo: packed.cmo
+open_pack.cmx: packed.cmx
 override_x.cmo:
 override_x.cmx:
+packed.cmo:
+packed.cmx:
+packed_alias.cmo:
+packed_alias.cmx:
 pathname.cmo:
 pathname.cmx:
 perv.cmo:
@@ -121,6 +133,10 @@ test19.cmo:
 test19.cmx:
 test24.cmo:
 test24.cmx:
+test3.cmo:
+test3.cmx:
+test5.cmo: dir1/test4.cmo
+test5.cmx: dir1/test4.cmx
 test7.cmo:
 test7.cmx:
 test8.cmo: test7.cmo
@@ -146,5 +162,9 @@ with_type.cmx:
 with_type2.cmo:
 with_type2.cmx:
 dummy/dummy.cmi:
+dir1/test4.cmo: test.cmo
+dir1/test4.cmx: test.cmx
+dir2/test6.cmo: test5.cmo
+dir2/test6.cmx: test5.cmx
 dummy/dummy.cmo: dummy/dummy.cmi
 dummy/dummy.cmx: dummy/dummy.cmi
