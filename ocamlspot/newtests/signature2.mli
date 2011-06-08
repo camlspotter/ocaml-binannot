@@ -1,6 +1,4 @@
-(* S => *)
-module type S = sig type (* S.t => *) t (* <= S.t *) end
-(* <= S *)
+module type S = (* S => *) sig type (* S.t => *) t (* <= S.t *) end (* <= S *)
 
 module M : S (* ? S *)
 
