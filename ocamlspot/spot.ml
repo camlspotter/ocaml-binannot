@@ -1003,8 +1003,7 @@ module Annot = struct
       | Texp_instvar (_, _path) -> () (* CR jfuruse: todo *)
       | Texp_setinstvar (_, _path, _) -> () (* CR jfuruse: todo *)
       | Texp_override (_, _list) -> () 
-      | Texp_letmodule (id, mexpr, _exp) ->
-          record_module_expr_def loc id mexpr
+      | Texp_letmodule (id, mexpr, _exp) -> record_module_expr_def mexpr.mod_loc id mexpr
       | Texp_assert _ -> ()
       | Texp_assertfalse -> ()
       | Texp_lazy _ -> ()
