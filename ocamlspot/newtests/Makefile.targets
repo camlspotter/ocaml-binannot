@@ -34,6 +34,7 @@ module_and_modtype2.cmo \
 module_type.cmo \
 module_use.cmo \
 multiple_definition.cmo \
+new_include_with_primitive.cmo \
 new_letmodule.cmo \
 new_var_in_open_module.cmo \
 object.cmo \

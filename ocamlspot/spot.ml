@@ -604,6 +604,7 @@ module Abstraction = struct
     | Tsig_cltype (id, _, _) -> Kind.Class_type, id
 *)
 
+  (* CR jfuruse: this is called many times (new_include2.ml *)    
   let kident_of_sigitemX exported_value_ids included_mexp = 
     let open Typedtree in
     let mty = Mtype.scrape included_mexp.mod_env included_mexp.mod_type in
@@ -625,17 +626,29 @@ module Abstraction = struct
         let rec fix_kid exported_ids = function
           | [] -> []
           | ((Kind.Value | Kind.Exception | Kind.Module | Kind.Class as k), id) :: kids ->
-              begin match exported_ids with
+              begin match List.find_all (fun id' -> Ident0.name id = Ident0.name id') exported_ids with
+              | [] when k = Kind.Value -> (* Primitive *)
+                  (k, Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)) 
+                  :: fix_kid exported_ids kids
               | [] -> assert false
-              | id'::exported_ids' ->
-                  assert (Ident0.name id = Ident0.name id'); (* Not Ident.name! *)
-                  (k, id') :: fix_kid exported_ids' kids
+              | [id'] -> (k, id') :: fix_kid exported_ids kids
+              | _ -> assert false
               end
           | ((Kind.Type | Kind.Module_type | Kind.Class_type as k), id) :: kids ->
               (k, Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)) :: fix_kid exported_ids kids
         in
-        fix_kid exported_value_ids (List.map kident_of_sigitem sg)
-
+        prerr_endline "fixing kids";
+        Format.eprintf "exported: @[%a@]@."
+          (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
+        Format.eprintf "sig: @[%a@]@."
+          (Format.list ", " (fun ppf (k,id) -> 
+            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) (List.map kident_of_sigitem sg);
+        let fixed = fix_kid exported_value_ids (List.map kident_of_sigitem sg) in
+        Format.eprintf "fixed: @[%a@]@."
+          (Format.list ", " (fun ppf (k,id) -> 
+            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
+        fixed
+          
   let rec module_expr mexp =
     try
       match Module_expr.Table.find cache_module_expr mexp with
