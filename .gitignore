@@ -307,3 +307,5 @@ tools/opnames.ml
 utils/config.ml
 yacc/ocamlyacc
 yacc/version.h
+*~
+ocamlspot/ocamlspot
