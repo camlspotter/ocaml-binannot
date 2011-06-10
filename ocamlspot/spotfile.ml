@@ -33,6 +33,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     version : string * string;
 *)
     argv : string array;
+
     top : Abstraction.structure;
     flat : Abstraction.structure;
     rannots : Annot.t Regioned.t list;
@@ -121,22 +122,18 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       }
     end
 
-    let load_cmt_file path : Typedtree.saved_type array * Context.command_context = 
+    let load_cmt_file path : Typedtree.saved_type array * Context.command_context * string list = 
       let ic = open_in path in
       let types : Typedtree.saved_type array = input_value ic in
       let context : Context.command_context = input_value ic in
+      let packed : string list = input_value ic in
       close_in ic;
-      types, context
+      types, context, packed
 
     let load_directly path : file =
       Debug.format "spot loading from %s@." path;
-      let file, context = load_cmt_file path in
-      Array.iter Annot.record_saved_type file;
-      let rannots = 
-        List.map (fun (loc, annot) ->
-          { Regioned.region = Region.of_parsing loc;
-            value = annot }) (Annot.recorded ())
-      in
+      let file, context, packed = load_cmt_file path in
+
       let source_path = 
         if Filename.is_relative context.Context.sourcefile then
           Filename.concat context.Context.cwd context.Context.sourcefile 
@@ -155,12 +152,36 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       in
       let cwd = context.Context.cwd in
       let load_paths = context.Context.load_path in (* CR jfuruse: load_path and file.load_paths are confusing *)
-      let top = 
-        match Annot.recorded_top () with
-        | None -> []
-        | Some top -> top
-      in
       let argv = context.Context.argv in
+
+      let rannots, top = 
+        if packed <> [] then begin
+
+          let rannots = [] in
+          let top = List.map (fun f -> 
+            let module_name = 
+              String.capitalize (Filename.chop_extension (Filename.basename f))
+            in
+            Abstraction.Str_module (Ident0.create module_name, (* CR jfuruse: stamp is bogus *)
+                                    Abstraction.Mod_packed f)) packed
+          in
+          rannots, top
+        end else begin
+          Array.iter Annot.record_saved_type file;
+          let rannots = 
+            List.map (fun (loc, annot) ->
+              { Regioned.region = Region.of_parsing loc;
+                value = annot }) (Annot.recorded ())
+          in
+          let top = 
+            match Annot.recorded_top () with
+            | None -> []
+            | Some top -> top
+          in
+          rannots, top
+        end
+      in
+        
       let tree =
         lazy begin
           List.fold_left Tree.add Tree.empty rannots
@@ -171,12 +192,12 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         List.iter (fun { Regioned.region = loc; value = annot } ->
           match annot with
           | Annot.Str ( Abstraction.Str_value id
-                          | Abstraction.Str_type id
-                          | Abstraction.Str_exception id
-                          | Abstraction.Str_modtype (id, _)
-                          | Abstraction.Str_class id
-                          | Abstraction.Str_cltype id   
-                          | Abstraction.Str_module (id, _) )  ->
+                      | Abstraction.Str_type id
+                      | Abstraction.Str_exception id
+                      | Abstraction.Str_modtype (id, _)
+                      | Abstraction.Str_class id
+                      | Abstraction.Str_cltype id   
+                      | Abstraction.Str_module (id, _) )  ->
               Hashtbl.add tbl id loc
           | Annot.Str ( Abstraction.Str_include _ ) -> ()
           | Annot.Functor_parameter id ->
@@ -208,13 +229,13 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         cwd = cwd;
         load_paths = List.map (fun load_path -> cwd ^/ load_path) load_paths;
         argv = argv;
+        
         top = top;
         flat = flat;
         rannots = rannots;
         tree = tree;
-        id_def_regions = id_def_regions;
-      }
-
+        id_def_regions = id_def_regions }
+        
     exception Old_spot of string (* spot *) * string (* source *)
 
     (* CR jfuruse: exception *)

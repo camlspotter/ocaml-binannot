@@ -1188,23 +1188,23 @@ let save_command_context oc sourcefile =
 let load_command_context ic : command_context =
   input_value ic
 
+let save_cmt path (saved_types : saved_type array) sourcefile (packed_modules : string list) =
+  if !Clflags.annotations && not !Clflags.print_types then begin
+    let oc = open_out path in
+    output_value oc saved_types;
+    save_command_context oc sourcefile;
+    output_value oc packed_modules;
+    close_out oc;
+    Typedtree.set_saved_types [];
+  end
+
 let transl_signature sourcefile outputprefix initial_env sg =
   try
     let tsg = transl_signature initial_env sg in
-    if !Clflags.annotations && not !Clflags.print_types then begin
-      let oc = open_out (outputprefix ^ ".cmti") in
-      output_value oc [| Saved_signature tsg |];
-      save_command_context oc sourcefile;
-      close_out oc;
-    end;
+    save_cmt (outputprefix ^ ".cmti") [| Saved_signature tsg |] sourcefile [];
     tsg
   with e ->
-    if !Clflags.annotations && not !Clflags.print_types then begin
-      let oc = open_out (outputprefix ^ ".cmti") in
-      output_value oc (Array.of_list (Typedtree.get_saved_types ()));
-      save_command_context oc sourcefile;
-      close_out oc;
-    end;
+    save_cmt (outputprefix ^ ".cmti") (Array.of_list (Typedtree.get_saved_types ())) sourcefile [];
     raise e
 
 let type_implementation sourcefile outputprefix modulename initial_env ast =
@@ -1212,37 +1212,11 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     Typedtree.set_saved_types [];
     let (str, coercion) = type_implementation sourcefile outputprefix modulename initial_env ast in
     (* CR jfuruse: I think the code for saving types should be in driver, not in  typing *)
-    if !Clflags.annotations then begin
-        Typedtree.set_saved_types [];
-        let oc = open_out (outputprefix ^ ".cmt") in
-        output_value oc [| Saved_implementation str |];
-        save_command_context oc sourcefile;
-        close_out oc;
-(*
-        let oc = open_out (outputprefix ^ "_ast2src.ml") in
-        let ppf = Format.formatter_of_out_channel oc in
-        Pprintast.print_structure ppf ast;
-        Format.pp_print_flush ppf ();
-        close_out oc;
-
-
-        let oc = open_out (outputprefix ^ "_typ2src.ml") in
-        let ppf = Format.formatter_of_out_channel oc in
-        Pprintast.print_structure ppf (Untypeast.untype_structure str);
-        Format.pp_print_flush ppf ();
-        close_out oc;
-*)
-      end;
+    save_cmt (outputprefix ^ ".cmt") [| Saved_implementation str |] sourcefile [];
     (str, coercion)
   with e ->
-      if !Clflags.annotations then begin
-          let oc = open_out (outputprefix ^ ".cmt") in
-          output_value oc (Array.of_list (Typedtree.get_saved_types ()));
-          save_command_context oc sourcefile;
-          close_out oc;
-        end;
-      Typedtree.set_saved_types  [];
-      raise e
+    save_cmt (outputprefix ^ ".cmt") (Array.of_list (Typedtree.get_saved_types ())) sourcefile [];
+    raise e
 
 (* "Packaging" of several compilation units into one unit
    having them as sub-modules.  *)
@@ -1273,8 +1247,11 @@ let package_units objfiles cmifile modulename =
   Ident.reinit();
   let sg = package_signatures Subst.identity units in
   (* See if explicit interface is provided *)
-  let mlifile =
-    chop_extension_if_any cmifile ^ !Config.interface_suffix in
+  (* CR jfuruse: [chop_extension_if_any cmifile] is actually [prefix] in [Bytepackager.package_files] *)
+  let prefix = chop_extension_if_any cmifile in
+  let mlifile = prefix ^ !Config.interface_suffix in
+  let cmtfile = prefix ^ ".cmt" in
+  save_cmt cmtfile [||] (prefix ^ ".cmo") objfiles; (* CR jfuruse: what about opt compilation ? *)
   if Sys.file_exists mlifile then begin
     if not (Sys.file_exists cmifile) then begin
       raise(Error(Location.in_file mlifile, Interface_not_compiled mlifile))
