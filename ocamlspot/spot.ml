@@ -16,6 +16,8 @@
 
 open Utils
 
+module Ident0 = Ident
+
 module Name = struct
   type t = string
 
@@ -41,8 +43,6 @@ module Name = struct
     with
     | _ -> raise Not_found
 end
-
-module Ident0 = Ident
 
 module Ident = struct
   (* extend the original module *)
@@ -465,7 +465,7 @@ module Regioned = struct
       { region = r12; value = v }) 
 
   let format f ppf { region = r; value = v } =
-    Format.fprintf ppf "@[<2>%s: %a@]" 
+    Format.fprintf ppf "@[<2>%s: @[%a@]@]" 
       (Region.to_string r) 
       f v
 end
@@ -984,8 +984,27 @@ module Annot = struct
       let loc = exp.exp_loc in
       record loc (Type exp.exp_type);
       match exp.exp_desc with
-      | Texp_ident (path, _) -> record loc (Use (Kind.Value, path))
-
+      | Texp_ident (path, vdesc) -> 
+          (* Val_self's path is modified and we must recover it *)  
+          (* This is a bizarre way, but works... *) 
+          begin match vdesc.Types.val_kind with
+          | Types.Val_self _ ->
+              let env_summary = Env.summary exp.exp_env in
+              let rec find = function
+                | Env.Env_empty -> assert false
+                | Env.Env_value (_, id, vdesc') when vdesc == vdesc' -> id
+                | Env.Env_value (sum, _, _)
+                | Env.Env_type (sum, _, _) 
+                | Env.Env_exception (sum, _, _)
+                | Env.Env_module (sum, _, _)
+                | Env.Env_modtype (sum, _, _)
+                | Env.Env_class (sum, _, _)
+                | Env.Env_cltype (sum, _, _)
+                | Env.Env_open (sum, _) -> find sum
+              in
+              record loc (Use (Kind.Value, Path.Pident (find env_summary)))
+          | _ -> record loc (Use (Kind.Value, path))
+          end
       | Texp_constant _ -> ()
       | Texp_let _ | Texp_function _ -> () (* done at bindings *)
       | Texp_apply _ -> ()
@@ -1013,8 +1032,8 @@ module Annot = struct
       | Texp_when _ -> ()
       | Texp_send _ -> ()
       | Texp_new (path, _) -> record loc (Use (Kind.Class, path))
-      | Texp_instvar (_, _path) -> () (* CR jfuruse: todo *)
-      | Texp_setinstvar (_, _path, _) -> () (* CR jfuruse: todo *)
+      | Texp_instvar (_, path) -> record loc (Use (Kind.Class, path))
+      | Texp_setinstvar (_, path, _) -> record loc (Use (Kind.Class, path))
       | Texp_override (_, _list) -> () 
       | Texp_letmodule (id, mexpr, _exp) -> record_module_expr_def mexpr.mod_loc id mexpr
       | Texp_assert _ -> ()
