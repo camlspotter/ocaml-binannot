@@ -1132,30 +1132,46 @@ module Annot = struct
       | Tmty_with (_, _list) -> (* CR jfuruse: list has paths, but no location *)
           ()
       | Tmty_typeof _ -> ()
-    
-(*
+
+    let enter_class_expr cexpr =
+      let loc = cexpr.cl_loc in
+      match cexpr.cl_desc with
+      | Tcl_ident (path, _) -> record loc (Use (Kind.Class, path)) (* CR jfuruse: WRONG it is instvar def~!!! *)
+      | Tcl_structure _ -> ()
+      | Tcl_fun (_, _, _pv (* ivars? *), _, _) -> () (* ? *) 
+      | Tcl_apply _ -> ()
+      | Tcl_let (_, _, _ivars, _) -> () (* ? *)
+      | Tcl_constraint (_, _, _, _, _ ) -> () (* ? *)
+
+    let enter_class_field cf =
+      match cf.cf_desc with
+      | Tcf_inher (_, _, _super (* ? *), _vals, _meths) -> ()
+      | Tcf_val (_, _, id, _, _) -> record cf.cf_loc (Use (Kind.Value, (Path.Pident id)))
+      | Tcf_meth (_mtname, _, _, _) -> ()
+      | Tcf_constr _ -> ()
+      | Tcf_let (_, _, _ivars(*?*)) -> ()
+      | Tcf_init _ -> ()
+
+  (*
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
     val enter_type_declaration : type_declaration -> unit
     val enter_exception_declaration :
-      exception_declaration -> unit
+    exception_declaration -> unit
     val enter_package_type : package_type -> unit
     val enter_signature : signature -> unit
     val enter_modtype_declaration : modtype_declaration -> unit
     val enter_with_constraint : with_constraint -> unit
-    val enter_class_expr : class_expr -> unit
     val enter_class_signature : class_signature -> unit
-    val enter_class_description : class_description -> unit
     val enter_class_type_declaration :
-      class_type_declaration -> unit
+    class_type_declaration -> unit
     val enter_class_infos : 'a class_infos -> unit
     val enter_class_type : class_type -> unit
     val enter_class_type_field : class_type_field -> unit
     val enter_core_field_type : core_field_type -> unit
     val enter_class_structure : class_structure -> unit
-    val enter_class_field : class_field -> unit
-*)
-  end
+  *)
+end
 
 (* CR jfuruse: todo
 
