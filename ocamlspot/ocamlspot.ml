@@ -256,7 +256,7 @@ module Main = struct
     let find_by_kind_path k path found =
       Unix.find targets ~f:(fun pathname ->
 	match Filename.split_extension pathname.Unix.base with
-	| _body, (".cmit" | ".cmt") ->
+	| _body, (".cmti" | ".cmt") ->
 	  let file = load pathname.Unix.path in
 	  Debug.format "Searching %s@." pathname.Unix.path;
 	  let base_ident = function
