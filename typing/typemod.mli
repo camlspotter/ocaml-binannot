@@ -17,6 +17,8 @@
 open Types
 open Format
 
+val bound_value_identifiers : signature -> Ident.t list
+
 val type_module:
         Env.t -> Parsetree.module_expr -> Typedtree.module_expr
 val type_structure:
