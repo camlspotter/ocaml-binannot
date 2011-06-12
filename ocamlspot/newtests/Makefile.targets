@@ -34,6 +34,7 @@ module_and_modtype2.cmo \
 module_type.cmo \
 module_use.cmo \
 multiple_definition.cmo \
+new_exception_include.cmo \
 new_include_with_primitive.cmo \
 new_inherit_let.cmo \
 new_letmodule.cmo \

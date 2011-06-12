@@ -612,6 +612,8 @@ module Abstraction = struct
     | Mty_functor _ -> assert false (* Including a functor?! *)
     | Mty_ident _ -> assert false (* Including an abstract module?! *)
     | Mty_signature sg ->
+        let internal_value_ids = Typemod.bound_value_identifiers sg in
+        let value_id_table = List.combine internal_value_ids exported_value_ids in
         let kident_of_sigitem = function
           | Sig_value (id, _) -> Kind.Value, id
           | Sig_exception (id, _) -> Kind.Exception, id
@@ -622,28 +624,21 @@ module Abstraction = struct
           | Sig_modtype (id, _) -> Kind.Module_type, id
           | Sig_class_type (id, _, _) -> Kind.Class_type, id
         in
-        (* [exported_value_ids] are created by [Typemod.bound_value_identifiers] *)
-        let rec fix_kid exported_ids = function
-          | [] -> []
-          | ((Kind.Value | Kind.Exception | Kind.Module | Kind.Class as k), id) :: kids ->
-              begin match List.find_all (fun id' -> Ident0.name id = Ident0.name id') exported_ids with
-              | [] when k = Kind.Value -> (* Primitive *)
-                  (k, Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)) 
-                  :: fix_kid exported_ids kids
-              | [] -> assert false
-              | [id'] -> (k, id') :: fix_kid exported_ids kids
-              | _ -> assert false
-              end
-          | ((Kind.Type | Kind.Module_type | Kind.Class_type as k), id) :: kids ->
-              (k, Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)) :: fix_kid exported_ids kids
+        let kids = List.map kident_of_sigitem sg in
+        (* Fixing internal ids to exported ids.
+           Non value ids are replaced by id with -2 *)
+        let fixed = List.map (fun (k, id) ->
+          (k, 
+           try List.assoc id value_id_table with Not_found -> 
+             Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *))) 
+          kids
         in
         prerr_endline "fixing kids";
         Format.eprintf "exported: @[%a@]@."
           (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
         Format.eprintf "sig: @[%a@]@."
           (Format.list ", " (fun ppf (k,id) -> 
-            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) (List.map kident_of_sigitem sg);
-        let fixed = fix_kid exported_value_ids (List.map kident_of_sigitem sg) in
+            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) kids;
         Format.eprintf "fixed: @[%a@]@."
           (Format.list ", " (fun ppf (k,id) -> 
             Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
