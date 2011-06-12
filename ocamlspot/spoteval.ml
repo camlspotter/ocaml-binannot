@@ -297,7 +297,8 @@ module Eval = struct
               (* it may be a predefed thing *)
               try !!(snd (Env.find Env.predef id)) with Not_found ->
 *)
-              Error (Failure (Printf.sprintf "%s not found in { %s }" 
+              Error (Failure (Printf.sprintf "%s:%s not found in { %s }" 
+                                (Kind.name kind)
                                 (Ident.name id)
                                 (String.concat "; " 
                                    (List.map Ident.name (Env.domain env)))))

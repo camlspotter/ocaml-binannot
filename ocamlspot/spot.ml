@@ -633,6 +633,7 @@ module Abstraction = struct
              Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *))) 
           kids
         in
+(*
         prerr_endline "fixing kids";
         Format.eprintf "exported: @[%a@]@."
           (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
@@ -642,6 +643,7 @@ module Abstraction = struct
         Format.eprintf "fixed: @[%a@]@."
           (Format.list ", " (fun ppf (k,id) -> 
             Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
+*)
         fixed
           
   let rec module_expr mexp =
