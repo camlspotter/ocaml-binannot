@@ -582,11 +582,13 @@ module MakeIterator(Iter : IteratorArgument) : sig
             List.iter (fun (ci, _, _) ->
                 Iter.enter_class_infos ci;
                 iter_class_expr ci.ci_expr;
+                Iter.leave_class_infos ci;
             ) list
         | Tstr_class_type list ->
             List.iter (fun (id, ct) ->
                 Iter.enter_class_infos ct;
                 iter_class_type ct.ci_expr;
+                Iter.leave_class_infos ct;
             ) list
         | Tstr_include (mexpr, _) ->
             iter_module_expr mexpr
