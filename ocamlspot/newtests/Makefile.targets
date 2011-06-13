@@ -35,10 +35,13 @@ module_type.cmo \
 module_use.cmo \
 multiple_definition.cmo \
 new_class_let.cmo \
+new_class_new.cmo \
+new_class_param.cmo \
 new_exception_include.cmo \
 new_include_with_primitive.cmo \
 new_inherit_let.cmo \
 new_letmodule.cmo \
+new_record_label.cmo \
 new_var_in_open_module.cmo \
 object.cmo \
 ocaml312.cmo \

@@ -19,7 +19,7 @@ let _ =
   match { y = 1 } (* ? type x *) with
   | { y = (* n => *) n (* <= n *) } (* ? type x *) -> n (* ? n *)
 
-let _ = x(* ? x *).y (* ? type x *) 
+let _ = x (* ? x *).y (* ? type x *)
 
 let _ = fun ((* fun x => *) x (* <= fun x *) : t (* ? type t *)) -> x (* ? fun x *) 
 

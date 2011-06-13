@@ -1030,7 +1030,7 @@ module Annot = struct
           end
       | Texp_variant _ -> ()
       | Texp_record _ -> record_constr_type_use loc exp.exp_type
-      | Texp_field (_exp, _path, _label) -> (* CR jfuruse: we can use path *)
+      | Texp_field (exp, _path, _label) -> (* CR jfuruse: we can use path *)
           record_constr_type_use loc exp.exp_type          
       | Texp_setfield (exp1, _path , _label, _exp2) -> (* CR jfuruse: we can use path *)
           record_constr_type_use loc exp1.exp_type          
@@ -1146,22 +1146,27 @@ module Annot = struct
 
     let enter_class_infos cl_info = 
       record cl_info.ci_loc (Str (Abstraction.Str_class cl_info.ci_id_class)); 
-      record cl_info.ci_loc (Str (Abstraction.Str_cltype cl_info.ci_id_class_type))
+      record cl_info.ci_loc (Str (Abstraction.Str_cltype cl_info.ci_id_class_type));
+      record cl_info.ci_loc (Str (Abstraction.Str_type cl_info.ci_id_typesharp));
+      record cl_info.ci_loc (Str (Abstraction.Str_type cl_info.ci_id_object))
+
+    let add_var_aliases loc (var_rename : (Ident.t * expression) list) = 
+      List.iter (fun (id, exp) ->
+        match exp.exp_desc with
+        | Texp_ident (path, _) ->
+            record loc (Str (Abstraction.Str_value_alias (id, path)))
+        | _ -> assert false) var_rename
 
     let enter_class_expr cexpr =
       let loc = cexpr.cl_loc in
       match cexpr.cl_desc with
       | Tcl_ident (path, _) -> record loc (Use (Kind.Class, path))
       | Tcl_structure _ -> ()
-      | Tcl_fun (_, _, _pv (* ivars? *), _, _) -> () (* ? *) 
+      | Tcl_fun (_, _, var_rename, _, _) -> add_var_aliases loc var_rename
       | Tcl_apply _ -> ()
       | Tcl_let (_, _, var_rename, _) ->
           (* Tcf_let renames bound variables in let and keep the info inside var_rename *)
-          List.iter (fun (id, exp) ->
-            match exp.exp_desc with
-            | Texp_ident (path, _) ->
-                record loc (Str (Abstraction.Str_value_alias (id, path)))
-            | _ -> assert false) var_rename
+          add_var_aliases loc var_rename
       | Tcl_constraint (_, _, _, _, _ ) -> () (* ? *)
 
     let enter_class_field cf =
@@ -1176,11 +1181,7 @@ module Annot = struct
       | Tcf_let (_, _, var_rename) -> 
           (* Tcf_let renames bound variables in let and keep the info inside var_rename 
              It is lousy but we need to recover the positions... *)
-          List.iter (fun (id, exp) ->
-            match exp.exp_desc with
-            | Texp_ident (path, _) ->
-                record exp.exp_loc (Str (Abstraction.Str_value_alias (id, path)))
-            | _ -> assert false) var_rename
+          add_var_aliases cf.cf_loc var_rename
       | Tcf_init _ -> ()
 
   (*
