@@ -4,7 +4,7 @@ class (* class c => *) c =  (* CR: pos can be improved *)
   object
     val x = x (* ? x *)
     val y = y (* ? y *)
-    val (* vx => *) vx = 1 (* <= vx *) (* CR: pos can be improved *)
+    (* vx => *) val vx = 1 (* <= vx *) (* CR: pos can be improved *)
     method m = vx (* ? vx *)
 end (* <= class c *)
 

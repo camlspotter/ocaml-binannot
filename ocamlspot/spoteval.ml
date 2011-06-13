@@ -419,8 +419,12 @@ module Eval = struct
             | Str_class _ -> Kind.Class
             | Str_cltype _ -> Kind.Class_type
             | Str_module _ | Str_include _ -> assert false
+            | Str_value_alias _ -> assert false
           in
           (id, (kind, eager v)) :: str
+
+      | Str_value_alias (id, path) ->
+          (id, (Kind.Value, find_path env0 (Kind.Value, path))) :: str
 
       (* CR: very ad-hoc rule for functor parameter *)      
       | Str_module (id, Mod_ident (Path.Pdot (Path.Pident _id, 

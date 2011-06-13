@@ -168,6 +168,8 @@ module Abstraction : sig
 
   and structure_item = 
     | Str_value of Ident.t
+    | Str_value_alias of Ident.t * Path.t
+        (** [Str_value_alias(id, path)] defines [id], but its definition is at the one for [path] *)
     | Str_type of Ident.t
     | Str_exception of Ident.t
     | Str_module of Ident.t * module_expr

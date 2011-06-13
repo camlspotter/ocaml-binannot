@@ -192,6 +192,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         List.iter (fun { Regioned.region = loc; value = annot } ->
           match annot with
           | Annot.Str ( Abstraction.Str_value id
+                      | Abstraction.Str_value_alias (id, _)
                       | Abstraction.Str_type id
                       | Abstraction.Str_exception id
                       | Abstraction.Str_modtype (id, _)

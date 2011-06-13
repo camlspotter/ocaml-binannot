@@ -1,5 +1,5 @@
 module M = struct
-  exception (* E => *) E (* <= E *)
+  (* E => *) exception E (* <= E *)
 end
 
 module N = struct

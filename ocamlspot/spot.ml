@@ -546,6 +546,7 @@ module Abstraction = struct
 
   and structure_item = 
     | Str_value of Ident.t
+    | Str_value_alias of Ident.t * Path.t
     | Str_type of Ident.t
     | Str_exception of Ident.t
     | Str_module of Ident.t * module_expr
@@ -577,15 +578,17 @@ module Abstraction = struct
 	| Str_exception id1, Str_exception id2
 	| Str_class id1, Str_class id2
 	| Str_cltype id1, Str_cltype id2 -> id1 = id2
+        | Str_value_alias (id1, p1), Str_value_alias (id2, p2) ->
+            id1 = id2 && p1 = p2
 	| Str_module (id1, mexp1) , Str_module (id2, mexp2) ->
 	    id1 = id2 && Module_expr.equal mexp1 mexp2
 	| Str_modtype (id1, mty1), Str_modtype (id2, mty2) ->
             id1 = id2 && Module_expr.equal mty1 mty2
 	| Str_include (mexp1, kids1), Str_include (mexp2, kids2) ->
 	    Module_expr.equal mexp1 mexp2 && kids1 = kids2
-	| (Str_value _ | Str_type _ | Str_exception _ | Str_modtype _ 
+	| (Str_value _ | Str_value_alias _ | Str_type _ | Str_exception _ | Str_modtype _ 
 	  | Str_class _ | Str_cltype _ | Str_module _ | Str_include _),
-	  (Str_value _ | Str_type _ | Str_exception _ | Str_modtype _ 
+	  (Str_value _ | Str_value_alias _ | Str_type _ | Str_exception _ | Str_modtype _ 
 	  | Str_class _ | Str_cltype _ | Str_module _ | Str_include _) -> false
 
       let hash = Hashtbl.hash
@@ -782,6 +785,7 @@ module Abstraction = struct
 
   let ident_of_structure_item : structure_item -> (Kind.t * Ident.t) option = function
     | Str_value id -> Some (Kind.Value, id)
+    | Str_value_alias (id, _) -> Some (Kind.Value, id)
     | Str_type id -> Some (Kind.Type, id)
     | Str_exception id -> Some (Kind.Exception, id) 
     | Str_module (id, _) -> Some (Kind.Module, id)
@@ -822,6 +826,7 @@ module Abstraction = struct
       
   and format_structure_item ppf = function
     | Str_value id -> fprintf ppf "val %s" (Ident.name id)
+    | Str_value_alias (id, path) -> fprintf ppf "val %s = %s" (Ident.name id) (Path.name path)
     | Str_type id -> fprintf ppf "type %s" (Ident.name id)
     | Str_exception id -> fprintf ppf "exception %s" (Ident.name id)
     | Str_module (id, mexp) -> 
@@ -1038,8 +1043,8 @@ module Annot = struct
       | Texp_when _ -> ()
       | Texp_send _ -> ()
       | Texp_new (path, _) -> record loc (Use (Kind.Class, path))
-      | Texp_instvar (_, path) -> record loc (Use (Kind.Class, path))
-      | Texp_setinstvar (_, path, _) -> record loc (Use (Kind.Class, path))
+      | Texp_instvar (_, path) -> record loc (Use (Kind.Value, path))
+      | Texp_setinstvar (_, path, _) -> record loc (Use (Kind.Value, path))
       | Texp_override (_, _list) -> () 
       | Texp_letmodule (id, mexpr, _exp) -> record_module_expr_def mexpr.mod_loc id mexpr
       | Texp_assert _ -> ()
@@ -1139,23 +1144,43 @@ module Annot = struct
           ()
       | Tmty_typeof _ -> ()
 
+    let enter_class_infos cl_info = 
+      record cl_info.ci_loc (Str (Abstraction.Str_class cl_info.ci_id_class)); 
+      record cl_info.ci_loc (Str (Abstraction.Str_cltype cl_info.ci_id_class_type))
+
     let enter_class_expr cexpr =
       let loc = cexpr.cl_loc in
       match cexpr.cl_desc with
-      | Tcl_ident (path, _) -> record loc (Use (Kind.Class, path)) (* CR jfuruse: WRONG it is instvar def~!!! *)
+      | Tcl_ident (path, _) -> record loc (Use (Kind.Class, path))
       | Tcl_structure _ -> ()
       | Tcl_fun (_, _, _pv (* ivars? *), _, _) -> () (* ? *) 
       | Tcl_apply _ -> ()
-      | Tcl_let (_, _, _ivars, _) -> () (* ? *)
+      | Tcl_let (_, _, var_rename, _) ->
+          (* Tcf_let renames bound variables in let and keep the info inside var_rename *)
+          List.iter (fun (id, exp) ->
+            match exp.exp_desc with
+            | Texp_ident (path, _) ->
+                record loc (Str (Abstraction.Str_value_alias (id, path)))
+            | _ -> assert false) var_rename
       | Tcl_constraint (_, _, _, _, _ ) -> () (* ? *)
 
     let enter_class_field cf =
       match cf.cf_desc with
-      | Tcf_inher (_, _, _super (* ? *), _vals, _meths) -> ()
-      | Tcf_val (_, _, id, _, _) -> record cf.cf_loc (Use (Kind.Value, (Path.Pident id)))
+      | Tcf_inher (_, _, _super (* ? *), vals, meths) -> 
+          List.iter (fun id ->
+            record cf.cf_loc (Str (Abstraction.Str_value id))) (* CR jfuruse: value? *)
+            (List.map snd vals @ List.map snd meths)
+      | Tcf_val (_, _, id, _, _) -> record cf.cf_loc (Str (Abstraction.Str_value id))
       | Tcf_meth (_mtname, _, _, _) -> ()
       | Tcf_constr _ -> ()
-      | Tcf_let (_, _, _ivars(*?*)) -> ()
+      | Tcf_let (_, _, var_rename) -> 
+          (* Tcf_let renames bound variables in let and keep the info inside var_rename 
+             It is lousy but we need to recover the positions... *)
+          List.iter (fun (id, exp) ->
+            match exp.exp_desc with
+            | Texp_ident (path, _) ->
+                record exp.exp_loc (Str (Abstraction.Str_value_alias (id, path)))
+            | _ -> assert false) var_rename
       | Tcf_init _ -> ()
 
   (*
@@ -1171,7 +1196,6 @@ module Annot = struct
     val enter_class_signature : class_signature -> unit
     val enter_class_type_declaration :
     class_type_declaration -> unit
-    val enter_class_infos : 'a class_infos -> unit
     val enter_class_type : class_type -> unit
     val enter_class_type_field : class_type_field -> unit
     val enter_core_field_type : core_field_type -> unit

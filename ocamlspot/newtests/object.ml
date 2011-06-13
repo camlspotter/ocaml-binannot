@@ -8,9 +8,9 @@ class (* c => *) c ((* p => *) p (* <= p *) : int) =
   let (* x => *) x (* <= x *) = 1 in
   let p' = p (* ? p *) in
   object (* self => *)(self)(* <= self *)
-    inherit (* a => *) c0 (* <= a *)
+    (* a => *) inherit c0 (* <= a *)
 
-    val (* y => *) mutable y = x (* <= y *)
+    (* y => *) val mutable y = x (* <= y *)
     val z = x (* ? x *)
     val p'' = p (* ? p *)
     method f () = x (* ? x *)
@@ -31,7 +31,7 @@ let _ =
 let o = 
   let (* yy => *) yy (* <= yy *) = 2 in
 object 
-  val (* xx => *) xx = 1 (* <= xx *) 
+  (* xx => *) val xx = 1 (* <= xx *) 
   method get_xx = xx (* ? xx *) 
   method get_yy = yy (* ? yy *)
 end
