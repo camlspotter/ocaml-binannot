@@ -70,7 +70,9 @@ module Value : sig
   module Binding : sig
     type t = binding
     val domain : t -> Ident.t list
-    val find : t -> Ident.t -> Kind.t * z
+    val find : t -> ?kind:Kind.t -> Ident.t -> Kind.t * z
+      (** If [kind] is specified, and [kind] has not exportable value,
+          it also checks Ident with id -2 *)
     val override : t -> structure_item -> t
     val overrides : t -> structure -> t
     val set : t -> structure -> unit
@@ -131,7 +133,22 @@ end = struct
       | None -> error ()
       | Some str -> f str
     let domain = with_check (List.map fst) 
-    let find t id = with_check (List.assoc id) t
+
+    let find t ?kind id = 
+      match kind with
+      | Some (Kind.Special_value | Kind.Type | Kind.Module_type | Kind.Class_type as k) ->
+          (* also checks id_X (-2) *)
+          with_check 
+            (fun t -> 
+              snd (List.find (fun (id', (k',_)) ->
+                k = k' &&
+                  (id = id' 
+                  || (Ident0.name id = Ident0.name id' 
+                     && Ident0.binding_time id' = -2 (* CR jfuruse: magic number *))))
+                     t))
+            t
+      | _ -> with_check (List.assoc id) t
+          
     let override t v = ref (Some (with_check (fun t -> v :: t) t))
     let overrides t vs = ref (Some (with_check (fun t -> vs @ t) t))
     let invalid = ref None 
@@ -238,7 +255,7 @@ module Env = struct
   } 
   let format = Value.Format.env
   let domain t = Binding.domain t.binding
-  let find t id = Binding.find t.binding id
+  let find t ?kind id = Binding.find t.binding ?kind id
   let override t v = { t with binding = Binding.override t.binding v }
   let overrides t vs = { t with binding = Binding.overrides t.binding vs }
   let predef = {
@@ -269,30 +286,31 @@ module Eval = struct
         begin try snd (Env.find Env.predef id) with Not_found ->
         
         if Ident.global id then
-          lazy begin try
-            let path, str = 
-              !str_of_global_ident ~load_paths:env.load_paths id
-            in
-            let str = Structure ( { PIdent.path = path; ident = None }, 
-                                  str,
-                                  None (* CR jfuruse: todo (read .mli *))
-            in
-            Debug.format "@[<2>LOAD SUCCESS %s =@ %a@]@."
-              (Ident.name id)
-              Value.Format.t str;
-            str
-          with
-          | e -> 
-              Format.eprintf "LOAD FAILIURE %s: %s@." (Ident.name id) (Printexc.to_string e);
-              Error e
+          lazy begin 
+            try
+              let path, str = 
+                !str_of_global_ident ~load_paths:env.load_paths id
+              in
+              let str = Structure ( { PIdent.path = path; ident = None }, 
+                                    str,
+                                    None (* CR jfuruse: todo (read .mli) *) )
+              in
+              Debug.format "@[<2>LOAD SUCCESS %s =@ %a@]@."
+                (Ident.name id)
+                Value.Format.t str;
+              str
+            with
+            | e -> 
+                Format.eprintf "LOAD FAILIURE %s: %s@." (Ident.name id) (Printexc.to_string e);
+                Error e
           end
         else begin 
           lazy begin
             Debug.format "find_path %s in { %s }@." 
               (Path.name p)
               (String.concat "; " 
-                (List.map Ident.name (Env.domain env)));
-            try !!(snd (Env.find env id)) with Not_found -> 
+                 (List.map Ident.name (Env.domain env)));
+            try !!(snd (Env.find env ~kind id)) with Not_found -> 
 (*
               (* it may be a predefed thing *)
               try !!(snd (Env.find Env.predef id)) with Not_found ->

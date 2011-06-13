@@ -480,12 +480,18 @@ end
 
 module Kind = struct
   type t = 
-    | Value | Type | Exception 
-    | Module | Module_type 
-    | Class | Class_type
+    | Value  (** regular value *)
+    | Special_value (** primitives and others *) 
+    | Type 
+    | Exception 
+    | Module 
+    | Module_type 
+    | Class 
+    | Class_type
 
   let to_string = function
     | Value -> "v"
+    | Special_value -> "sv"
     | Type -> "t"
     | Exception -> "e" 
     | Module -> "m"
@@ -496,6 +502,7 @@ module Kind = struct
   (* for messages *)
   let name = function
     | Value -> "value"
+    | Special_value -> "special_value"
     | Type -> "type"
     | Exception -> "exception" 
     | Module -> "module"
@@ -506,6 +513,7 @@ module Kind = struct
   (* used for query interface *)        
   let from_string = function
     | "v" | "value" -> Value
+    | "sv" | "special_value" -> Special_value
     | "t" | "type" -> Type
     | "e" | "exception" -> Exception
     | "m" | "module" -> Module
@@ -615,7 +623,8 @@ module Abstraction = struct
         let internal_value_ids = Typemod.bound_value_identifiers sg in
         let value_id_table = List.combine internal_value_ids exported_value_ids in
         let kident_of_sigitem = function
-          | Sig_value (id, _) -> Kind.Value, id
+          | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
+          | Sig_value (id, _) -> Kind.Special_value, id
           | Sig_exception (id, _) -> Kind.Exception, id
           | Sig_module (id, _, _) ->  Kind.Module, id
           | Sig_class (id, _, _) -> Kind.Class, id

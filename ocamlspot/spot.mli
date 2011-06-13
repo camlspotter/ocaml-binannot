@@ -135,9 +135,14 @@ end
 
 module Kind : sig
   type t = 
-    | Value | Type | Exception 
-    | Module | Module_type 
-    | Class | Class_type
+    | Value  (** regular value *)
+    | Special_value (** primitives and others *) 
+    | Type 
+    | Exception 
+    | Module 
+    | Module_type 
+    | Class 
+    | Class_type
 
   val to_string : t -> string
   val from_string : string -> t
