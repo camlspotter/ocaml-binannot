@@ -1096,7 +1096,9 @@ module Annot = struct
           List.iter (fun (id, decl) ->
             record decl.typ_loc (Str (Abstraction.Str_type id))) list
       | Tstr_exception (id, _decl) -> record loc (Str (Abstraction.Str_exception id))
-      | Tstr_exn_rebind (id, _p) -> record loc (Str (Abstraction.Str_exception id))
+      | Tstr_exn_rebind (id, p) -> 
+          record loc (Str (Abstraction.Str_exception id));
+          record loc (Use (Kind.Exception, p)) (* CR jfuruse: loc can be improved *)
       | Tstr_module (id, mexpr) -> record_module_expr_def loc id mexpr
       | Tstr_recmodule list ->
 	  List.iter (fun (id, _mtype, mexpr) ->

@@ -37,6 +37,7 @@ multiple_definition.cmo \
 new_class_let.cmo \
 new_class_new.cmo \
 new_class_param.cmo \
+new_exception_alias.cmo \
 new_exception_include.cmo \
 new_include_with_primitive.cmo \
 new_inherit_let.cmo \
