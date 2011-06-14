@@ -70,6 +70,7 @@ module Value : sig
   module Binding : sig
     type t = binding
     val domain : t -> Ident.t list
+    val domain_with_kind : t -> (Ident.t * Kind.t) list
     val find : t -> ?kind:Kind.t -> Ident.t -> Kind.t * z
       (** If [kind] is specified, and [kind] has not exportable value,
           it also checks Ident with id -2 *)
@@ -133,6 +134,7 @@ end = struct
       | None -> error ()
       | Some str -> f str
     let domain = with_check (List.map fst) 
+    let domain_with_kind = with_check (List.map (fun (id, (k, _)) -> (id, k)))
 
     let find t ?kind id = 
       match kind with
@@ -255,6 +257,7 @@ module Env = struct
   } 
   let format = Value.Format.env
   let domain t = Binding.domain t.binding
+  let domain_with_kind t = Binding.domain_with_kind t.binding
   let find t ?kind id = Binding.find t.binding ?kind id
   let override t v = { t with binding = Binding.override t.binding v }
   let overrides t vs = { t with binding = Binding.overrides t.binding vs }

@@ -68,6 +68,7 @@ module Binding : sig
   type t = Value.binding
       
   val domain : t -> Ident.t list
+  val domain_with_kind : t -> (Ident.t * Kind.t) list
   val find : t -> ?kind:Kind.t -> Ident.t -> Kind.t * Value.z
       (** If [kind] is specified, and [kind] has not exportable value,
           it also checks Ident with id -2 *)
@@ -88,6 +89,7 @@ module Env : sig
   }
   val format : Format.formatter -> Value.env -> unit
   val domain : t -> Ident.t list
+  val domain_with_kind : t -> (Ident.t * Kind.t) list
   val find : t -> ?kind:Kind.t -> Ident.t -> Kind.t * Value.z
       (** If [kind] is specified, and [kind] has not exportable value,
           it also checks Ident with id -2 *)

@@ -1121,7 +1121,7 @@ module Annot = struct
       | Ttyp_alias (_ct, _s) -> () (* CR jfuruse: we will be able to work on poly things *) 
       | Ttyp_variant _ -> ()
       | Ttyp_poly _ -> ()
-      | Ttyp_package _pack -> ()
+      | Ttyp_package pack -> record ct.ctyp_loc (Use (Kind.Module_type, pack.pack_name)) (* CR jfuruse ? *)
 
     let enter_module_expr mexpr =
       match mexpr.mod_desc with
