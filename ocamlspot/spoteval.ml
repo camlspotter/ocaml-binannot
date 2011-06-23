@@ -45,10 +45,14 @@ end
 
 module Value : sig
 
+  type module_expr_or_type = 
+    | Module_expr of Typedtree.module_expr
+    | Module_type of Typedtree.module_type
+
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * Types.module_type * Abstraction.module_expr
+    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -103,10 +107,14 @@ module Value : sig
 
 end = struct
 
+  type module_expr_or_type = 
+    | Module_expr of Typedtree.module_expr
+    | Module_type of Typedtree.module_type
+
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * Types.module_type * Abstraction.module_expr
+    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -215,11 +223,13 @@ end = struct
               PIdent.format pid
             structure str
             structure str'
-      | Closure (pid, _, id, _mty, module_expr) ->
-            Format.fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%a@]@])" 
+      | Closure (pid, _, id, _mty, module_expr_or_type) ->
+            Format.fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
               PIdent.format pid
               (Ident.name id)
-              Abstraction.format_module_expr module_expr
+              (fun ppf -> match module_expr_or_type with
+              | Module_expr _mexp -> Format.fprintf ppf "MEXP" (* CR jfuruse *)
+              | Module_type _mty -> Format.fprintf ppf "MTY" (* CR jfuruse *))
       | Error (Failure s) -> Format.fprintf ppf "ERROR(%s)" s
       | Error exn -> Format.fprintf ppf "ERROR(%s)" (Printexc.to_string exn)
             
@@ -271,7 +281,8 @@ end
 
 module Eval = struct
 
-  open Abstraction
+  open Typedtree
+
   open Value
   module Format = OCaml.Format
 
@@ -357,23 +368,25 @@ module Eval = struct
           Error (Failure (Printf.sprintf "Not found: %s__%d" name pos))
     end
 
-  and module_expr env idopt : module_expr -> Value.z = function
-    | Mod_abstract -> eager (Error (Failure "abstract"))
-    | Mod_ident p -> 
-        find_path env (Kind.Module, p)
-    | Mod_packed s -> lazy (!packed env s)
-    | Mod_structure str -> 
+  and module_expr_or_type env idopt : module_expr_or_type -> Value.z = function
+    | Module_expr mexp -> module_expr env idopt mexp 
+    | Module_type mty -> module_type env idopt mty
+
+  and module_expr env idopt mexp =
+    match mexp.mod_desc with
+    | Tmod_ident p -> find_path env (Kind.Module, p)
+    | Tmod_structure str -> 
         lazy begin
           let str = structure env str in
           Structure ({ PIdent.path= env.path; ident = idopt }, str, None)
         end
-    | Mod_functor (id, mty, mexp) -> 
+    | Tmod_functor (id, mty, mexp) -> 
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.path = env.path; ident = idopt }, 
-                       env, id, mty, mexp))
-    | Mod_constraint (mexp, _mty) -> 
+                        env, id, mty, Module_expr mexp))
+    | Tmod_constraint (mexp, _mty, _, _) -> 
         (* [mty] may not be a simple signature but an ident which is
            hard to get its definition at this point. 
            Therefore we do not constrain our result here. 
@@ -392,19 +405,53 @@ module Eval = struct
            end)
         *)
         module_expr env idopt (*?*) mexp
-    | Mod_apply (mexp1, mexp2) ->
+    | Tmod_apply (mexp1, mexp2, _coe) ->
         let v1 = module_expr env None mexp1 in
         let v2 = module_expr env None mexp2 in
 	apply v1 v2
-    | Mod_unpack _mty -> lazy (Error (Failure "packed"))
+    | Tmod_unpack (_mty, _) -> lazy (Error (Failure "packed"))
+
+  and module_type env idopt mexp = 
+    match mexp.mty_desc with
+    | Tmty_ident p -> find_path env (Kind.Module_type, p)
+    | Tmty_signature sg -> 
+        lazy begin
+          let sg = signature env sg in
+          Structure ({ PIdent.path= env.path; ident = idopt }, sg, None)
+        end
+    | Tmty_functor (id, mty1, mty2) ->
+        Debug.format "evaluating functor (arg %s) under %s@."
+          (Ident.name id)
+          (String.concat "; " (List.map Ident.name (Env.domain env)));
+        eager (Closure ({ PIdent.path = env.path; ident = idopt }, 
+                        env, id, mty1, Module_type mty2))
+    | Tmty_with (_, _) -> assert false (* module_type * (Path.t * with_constraint) list *)
+    | Tmty_typeof _mty -> assert false
 
   (* expand internal Include and get alist by Ident.t *)
   (* the list order is REVERSED and is last-defined-first, 
      but it is REQUIRED for environment query *)
-  and structure env0 sitems : Value.structure =
+  and structure env0 str : Value.structure =
 
     List.fold_left (fun str sitem ->
       match sitem with
+      | Tstr_eval _ -> ()
+      | Tstr_value (_, pat_exps) -> 
+          of rec_flag * (pattern * expression) list
+  | Tstr_primitive of Ident.t * value_description
+  | Tstr_type of (Ident.t * type_declaration) list
+  | Tstr_exception of Ident.t * exception_declaration
+  | Tstr_exn_rebind of Ident.t * Path.t
+  | Tstr_module of Ident.t * module_expr
+  | Tstr_recmodule of (Ident.t * module_type * module_expr) list
+  | Tstr_modtype of Ident.t * module_type
+  | Tstr_open of Path.t
+  | Tstr_class of (class_declaration * string list * virtual_flag) list
+(*      (Ident.t * int * string list * class_expr * virtual_flag) list *)
+  | Tstr_class_type of (Ident.t * class_type_declaration) list
+  | Tstr_include of module_expr * Ident.t list
+
+
       | Str_value id 
       | Str_type id
       | Str_exception id
@@ -493,7 +540,9 @@ module Eval = struct
               in
               id, (k, v)) kids
           in
-          str' @ str) [] sitems
+          str' @ str) [] str.str_items
+
+  and signature _env0 _sitems : Value.structure = assert false
 
   and apply v1 v2 =
     lazy begin match !!v1 with

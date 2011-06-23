@@ -149,56 +149,23 @@ module Kind : sig
   val name : t -> string
 end
 
-module Abstraction : sig
-
-  (* module definition abstraction *)
-  type module_expr = (* private *)
-    | Mod_ident of Path.t (* module M = N *)
-    | Mod_packed of string (* full path *)
-        (* -pack overrides load paths: ocamlc -pack dir1/dir2/dir3/x.cmo *)
-    | Mod_structure of structure (* module M = struct ... end *)
-    | Mod_functor of Ident.t * Types.module_type * module_expr (* module M(I:S) = *)
-    | Mod_apply of module_expr * module_expr (* module M = N(O) *)
-    | Mod_constraint of module_expr * Types.module_type
-    | Mod_unpack of Types.module_type
-    | Mod_abstract (* used for Tmodtype_abstract *)
-
-  (* structure abstraction : name - defloc asoc list *)
-  and structure = structure_item list
-
-  and structure_item = 
-    | Str_value of Ident.t
-    | Str_value_alias of Ident.t * Path.t
-        (** [Str_value_alias(id, path)] defines [id], but its definition is at the one for [path] *)
-    | Str_type of Ident.t
-    | Str_exception of Ident.t
-    | Str_module of Ident.t * module_expr
-    | Str_modtype of Ident.t * module_expr
-    | Str_class of Ident.t
-    | Str_cltype of Ident.t
-    | Str_include of module_expr * (Kind.t * Ident.t) list
-
-  val ident_of_structure_item : structure_item -> (Kind.t * Ident.t) option
-
-  open Format
-  val format_module_expr : formatter -> module_expr -> unit
-  val format_structure : formatter -> structure -> unit
-  val format_structure_item : formatter -> structure_item -> unit
-end
-
 module Annot : sig
+  type def =
+    | Def_module_expr of Typedtree.module_expr
+    | Def_module_type of Typedtree.module_type
+    | Def_alias of Path.t
+
   type t =
     | Type of Types.type_expr (* sub-expression's type *)
-    | Str of Abstraction.structure_item 
-    | Use of Kind.t * Path.t
-    | Module of Abstraction.module_expr
-    | Functor_parameter of Ident.t
-    | Non_expansive of bool
     | Mod_type of Types.module_type
+    | Non_expansive of bool
+    | Use of Kind.t * Path.t
+    | Functor_parameter of Ident.t
+    | Def of Ident.t * def option (* definition of Ident.t *)
 
   val record_saved_type : Typedtree.saved_type -> unit
   val recorded : unit -> (Location.t * t) list
-  val recorded_top : unit -> Abstraction.structure option 
+  val recorded_top : unit -> Typedtree.saved_type option
 (*
   val record : Location.t -> t -> unit
     

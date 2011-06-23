@@ -22,10 +22,14 @@ end
 
 module Value : sig
 
+  type module_expr_or_type = 
+    | Module_expr of Typedtree.module_expr
+    | Module_type of Typedtree.module_type
+
   type t =
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option
-    | Closure of PIdent.t * env * Ident.t * Types.module_type * Abstraction.module_expr
+    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn
 
@@ -108,12 +112,13 @@ module Eval : sig
     
   val find_ident : Value.structure -> Kind.t * string * int -> Value.z
 
-  val module_expr :
+  val module_expr_or_type :
     Env.t ->
     Ident.t option ->
-    Abstraction.module_expr -> Value.z
+    Value.module_expr_or_type -> Value.z
 
-  val structure : Env.t -> Abstraction.structure -> Value.structure
+  val structure : Env.t -> Typedtree.structure -> Value.structure
+  val signature : Env.t -> Typedtree.signature -> Value.structure
     
   val apply : Value.z -> Value.z -> Value.z
 end
