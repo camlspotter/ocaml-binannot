@@ -38,11 +38,10 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
     version : string * string;
 *)
     argv : string array;
-    top : Abstraction.structure;
-    flat : Abstraction.structure;
+    top : Typedtree.saved_type option;
     rannots : Annot.t Regioned.t list;
     tree : Tree.t lazy_t;
-    id_def_regions : (Ident.t, Region.t) Hashtbl.t;
+    flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;
   }
 	
   val dump_file : file -> unit
@@ -53,16 +52,20 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
   val load : load_paths:string list -> string -> file
   val load_module : ?spit:bool -> load_paths:string list -> string -> file
     
+(*
   val empty_env : file -> Env.t
   val invalid_env : file -> Env.t
+*)
 
   type result = File_itself | Found_at of Region.t | Predefined
   
+(*
   val find_path_in_flat : file -> Kind.t * Path.t -> PIdent.t * result
 
   val str_of_global_ident : load_paths:string list -> Ident.t -> string * Value.structure
 
   val eval_packed : Env.t -> string -> Value.t
+*)
 
   val dump_elem : elem -> unit
   val dump_elems : elem list -> unit

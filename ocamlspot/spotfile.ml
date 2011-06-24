@@ -34,11 +34,13 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 *)
     argv : string array;
 
-    top : Abstraction.structure;
+    top : Typedtree.saved_type option;
+(*
     flat : Abstraction.structure;
+*)
     rannots : Annot.t Regioned.t list;
     tree : Tree.t lazy_t;
-    id_def_regions : (Ident.t, Region.t) Hashtbl.t;
+    flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;
   }
 
   let dump_file file =
@@ -77,7 +79,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     | None -> filename
     | Some d -> Filename.concat d filename
 
+(*
   open Abstraction
+*)
 
   module Load : sig
     exception Old_spot of string (* spot *) * string (* source *)
@@ -157,6 +161,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       let rannots, top = 
         if packed <> [] then begin
 
+(*
           let rannots = [] in
           let top = List.map (fun f -> 
             let module_name = 
@@ -166,6 +171,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                                     Abstraction.Mod_packed f)) packed
           in
           rannots, top
+*)
+          assert false
+
         end else begin
           Array.iter Annot.record_saved_type file;
           let rannots = 
@@ -173,11 +181,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
               { Regioned.region = Region.of_parsing loc;
                 value = annot }) (Annot.recorded ())
           in
-          let top = 
-            match Annot.recorded_top () with
-            | None -> []
-            | Some top -> top
-          in
+          let top = Annot.recorded_top () in
           rannots, top
         end
       in
@@ -187,55 +191,27 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
           List.fold_left Tree.add Tree.empty rannots
         end
       in
-      let id_def_regions = 
+
+      let flat = 
         let tbl = Hashtbl.create 107 in
-        List.iter (fun { Regioned.region = loc; value = annot } ->
+        List.iter (fun ({ Regioned.value = annot; _ } as rannot) ->
           match annot with
-          | Annot.Str ( Abstraction.Str_value id
-                      | Abstraction.Str_value_alias (id, _)
-                      | Abstraction.Str_type id
-                      | Abstraction.Str_exception id
-                      | Abstraction.Str_modtype (id, _)
-                      | Abstraction.Str_class id
-                      | Abstraction.Str_cltype id   
-                      | Abstraction.Str_module (id, _) )  ->
-              Hashtbl.add tbl id loc
-          | Annot.Str ( Abstraction.Str_include _ ) -> ()
-          | Annot.Functor_parameter id ->
-              Hashtbl.add tbl id loc
-          | Annot.Type _ | Annot.Use _ | Annot.Module _ 
-          | Annot.Non_expansive _ | Annot.Mod_type _ -> ()) rannots;
+          | Annot.Def (id, _) -> Hashtbl.add tbl id rannot
+          | Annot.Functor_parameter id -> Hashtbl.add tbl id rannot
+          | Annot.Type _ | Annot.Mod_type _ | Annot.Use _  | Annot.Non_expansive _ -> ()) rannots;
         tbl
       in
-      let flat = 
-        (* flat is created NOT from top but from rannots, since top
-           may not exist when the compilation fails *)
-        List.fold_left (fun st { Regioned.value = annot; _ } -> 
-          match annot with
-          | Annot.Str sitem -> sitem :: st
-          | Annot.Functor_parameter id ->
-              (* CR: fake a sitem. quite ad-hoc *)
-              Str_module (id, Mod_ident (Path.Pdot (Path.Pident id, 
-                                                    "parameter", 
-                                                    -2))) 
-              :: st
-          | Annot.Type _ 
-          | Annot.Use _
-          | Annot.Module _ 
-          | Annot.Non_expansive _ 
-          | Annot.Mod_type _ -> st ) [] rannots
-      in
+
       { (* version = version; *)
         path = source_path;
         cwd = cwd;
         load_paths = List.map (fun load_path -> cwd ^/ load_path) load_paths;
         argv = argv;
-        
         top = top;
-        flat = flat;
         rannots = rannots;
         tree = tree;
-        id_def_regions = id_def_regions }
+        flat = flat;
+      }
         
     exception Old_spot of string (* spot *) * string (* source *)
 
@@ -366,7 +342,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       
   type result =
       | File_itself
-      | Found_at of Region.t
+      | Found_at of Annot.t Regioned.t
       | Predefined
 
   let find_path_in_flat file path : PIdent.t * result =
@@ -389,7 +365,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
           | None -> File_itself (* the whole file *)
           | Some id -> 
               Found_at begin try
-                Hashtbl.find file.id_def_regions id
+                Hashtbl.find file.flat id
               with
               | Not_found ->
                   Format.eprintf "Error: find location of id %a failed@."

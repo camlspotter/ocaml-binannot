@@ -273,8 +273,8 @@ module Position = struct
     | _ -> assert false
 
   let to_string p = match p.line_column, p.bytes with
-    | Some (l,c), Some b -> Printf.sprintf "l%dc%db%d" l c b
-    | Some (l,c), None -> Printf.sprintf "l%dc%d" l c
+    | Some (l,c), Some b -> Printf.sprintf "%d_%d_%d" l c b
+    | Some (l,c), None -> Printf.sprintf "%d_%d" l c
     | None, Some b -> Printf.sprintf "b%d" b
     | None, None -> assert false
 
@@ -282,7 +282,28 @@ module Position = struct
 
   exception Parse_failure of string
 
-  let parse s =
+  let parse_new s = 
+    let get_num pos = 
+      try
+        let upos = String.index_from s pos '_' in 
+        int_of_string (String.sub s pos (upos - pos)), Some (upos + 1)
+      with
+      | Not_found -> int_of_string (String.sub s pos (String.length s - pos)), None
+    in
+    let rec get_nums pos = 
+      let s, pos' = get_num pos in
+      match pos' with
+      | None -> [s]
+      | Some pos' -> s :: get_nums pos'
+    in
+    match get_nums 0
+    with
+    | [l; c; b] -> { line_column = Some (l, c);  bytes = Some b }
+    | [l; c] -> { line_column = Some (l, c);  bytes = None }
+    | [b] -> { line_column = None; bytes = Some b }
+    | _ -> raise (Parse_failure "illegal pos token combination")
+
+  let parse_old s =
     (* token : [a-z][0-9]+ *)
     let len = String.length s in 
     let rec get_number ~num pos =
@@ -323,6 +344,8 @@ module Position = struct
 				    bytes = None }
     | ['b', bytes] -> { line_column = None; bytes = Some bytes }
     | _ -> raise (Parse_failure "illegal pos token combination")
+
+  let parse s = try parse_new s with _ -> parse_old s
 
   let next = function
     | { bytes = Some b; _ } -> { bytes = Some (b + 1); line_column = None }

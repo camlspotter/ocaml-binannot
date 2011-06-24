@@ -46,7 +46,8 @@ module Dump = struct
   let tree file = Tree.dump !!(file.File.tree)
   ;;
 
-  let top file = 
+  let top _file = 
+(*
     Format.eprintf "@[<2>top =@ @[%a@]@]@." 
       Abstraction.format_structure file.File.top;
     let str = 
@@ -57,9 +58,13 @@ module Dump = struct
       Enforcer.structure str;
     end;
     Format.eprintf "==>@.@[%a@]@." Value.Format.structure str
+*)
+    Format.eprintf "XXX@.";
   ;;
 
-  let flat file = 
+  let flat _file =
+    Format.eprintf "XXX@.";
+(*
     Format.eprintf "@[<2>flat =@ @[%a@]@]@." 
       Abstraction.format_structure file.File.flat;
     let str = 
@@ -73,7 +78,9 @@ module Dump = struct
       Enforcer.structure str;
     end;
     Format.eprintf "==>@.@[%a@]@." Value.Format.structure str;
+*)
   ;;
+
 end
 
 module Main = struct
@@ -115,7 +122,8 @@ module Main = struct
 
   let print_query_result kind = function
     | None -> Format.printf "Spot: no spot@."
-    | Some (pident, res) -> match res with
+    | Some (pident, res) -> 
+        match res with
 	| File.File_itself ->
             Format.printf "Spot: <%s:all>@." pident.PIdent.path
 	| File.Found_at region ->
@@ -136,7 +144,8 @@ module Main = struct
     in
     match treepath with
     | [] -> 
-	failwith (Printf.sprintf "nothing at %s" (Position.to_string pos))
+        failwith (Printf.sprintf "nothing at %s" (Position.to_string pos))
+
     | { Regioned.region = r; _ } :: _ ->
 	
 	(* find annots bound to the region *)
@@ -169,13 +178,13 @@ module Main = struct
 	in
 *)
 	  
-        List.iter (fun annot -> 
-	  Format.printf "%a@." Annot.format annot) annots;
+        List.iter (fun annot -> Format.printf "%a@." Annot.format annot) annots;
 
 	(* Tree is an older format. XTree is a newer which is the same as one for Spot *)
         Format.printf "Tree: %s@." (Region.to_string r);
         Format.printf "XTree: <%s:%s>@." file.File.path (Region.to_string r);
 
+(*
 	(* Find the innermost module *)
         let rec find_module_path = function
           | [] -> []
@@ -186,6 +195,7 @@ module Main = struct
         in
         Format.printf "In_module: %s@."
           (String.concat "." (List.map Ident0.name (List.rev (find_module_path treepath))));
+*)
 
         (* print "Val: val name : type" if it is a Str: val *)
         let print_sig_entry annots =
@@ -195,7 +205,7 @@ module Main = struct
             | [] -> None
           in
           let rec find_str_value = function
-            | Annot.Str (Abstraction.Str_value id) :: _ -> Some id
+            | Annot.Def (id, _) :: _ -> Some id
             | _::xs -> find_str_value xs
             | [] -> None
           in
@@ -221,8 +231,9 @@ module Main = struct
     begin match spec with
     | C.SearchSpec.Kind (k,path) -> 
         print_query_result k (query_by_kind_path file k path)
+
     | C.SearchSpec.Pos pos -> 
-	let annots = query_by_pos file pos in
+	let _annots = query_by_pos file pos in
         if not C.no_definition_analysis then begin
           List.iter (function
             | Annot.Use (kind, path) -> 
@@ -245,6 +256,7 @@ module Main = struct
         Format.eprintf "uncaught exception: %s@." (Printexc.to_string e);
         bye 1
 
+(*
   let use path spec targets =
     let targets = if targets = [] then ["."] else targets in
     (* CR jfuruse: dup *)
@@ -315,6 +327,7 @@ module Main = struct
     end;
     bye 0
   ;;
+*)
 
   let typecheck args =
     let command = Sys.argv.(0) :: args in
@@ -346,12 +359,17 @@ module Main = struct
     match C.mode with
     | `Dump path -> ignore (load path)
     | `Query (path, spec) -> query path spec
+(*
     | `Typecheck args -> typecheck args
+*)
 (*
     | `Recheck args -> recheck args
 *)
+(*
     | `Recheck _ -> assert false
     | `Use ((path, spec), targets)-> use path spec targets
+*)
+    | _ -> assert false
 end
 
 let _ = Main.main ()

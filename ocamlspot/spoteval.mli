@@ -20,6 +20,7 @@ module PIdent : sig
   val format : Format.formatter -> t -> unit
 end
 
+(*
 module Value : sig
 
   type module_expr_or_type = 
@@ -122,3 +123,4 @@ module Eval : sig
     
   val apply : Value.z -> Value.z -> Value.z
 end
+*)

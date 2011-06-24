@@ -43,6 +43,53 @@ module PIdent = struct
         | None -> "TOP")
 end
 
+(* CR jfuruse: this is called many times (new_include2.ml *)    
+let kident_of_include exported_value_ids included_mexp = 
+  let open Typedtree in
+  let open Types in
+  let mty = Mtype.scrape included_mexp.mod_env included_mexp.mod_type in
+  match mty with
+  | Mty_functor _ -> assert false (* Including a functor?! *)
+  | Mty_ident _ -> assert false (* Including an abstract module?! *)
+  | Mty_signature sg ->
+      let internal_value_ids = Typemod.bound_value_identifiers sg in
+      let value_id_table = List.combine internal_value_ids exported_value_ids in
+      let kident_of_sigitem = function
+        | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
+        | Sig_value (id, _) -> Kind.Special_value, id
+        | Sig_exception (id, _) -> Kind.Exception, id
+        | Sig_module (id, _, _) ->  Kind.Module, id
+        | Sig_class (id, _, _) -> Kind.Class, id
+
+        | Sig_type (id, _, _) -> Kind.Type, id
+        | Sig_modtype (id, _) -> Kind.Module_type, id
+        | Sig_class_type (id, _, _) -> Kind.Class_type, id
+      in
+      let kids = List.map kident_of_sigitem sg in
+      (* Fixing internal ids to exported ids.
+         Non value ids are replaced by id with -2 *)
+      let fixed = List.map (fun (k, id) ->
+        (k, 
+         try List.assoc id value_id_table with Not_found -> 
+           Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *))) 
+        kids
+      in
+
+(*
+      prerr_endline "fixing kids";
+      Format.eprintf "exported: @[%a@]@."
+        (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
+      Format.eprintf "sig: @[%a@]@."
+        (Format.list ", " (fun ppf (k,id) -> 
+          Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) kids;
+      Format.eprintf "fixed: @[%a@]@."
+        (Format.list ", " (fun ppf (k,id) -> 
+          Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
+*)
+
+      fixed
+        
+
 module Value : sig
 
   type module_expr_or_type = 
@@ -433,58 +480,33 @@ module Eval = struct
      but it is REQUIRED for environment query *)
   and structure env0 str : Value.structure =
 
+    let z_of_id id = eager (Ident { PIdent.path = env0.Env.path; ident = Some id }) in
+
     List.fold_left (fun str sitem ->
-      match sitem with
-      | Tstr_eval _ -> ()
+      match sitem.str_desc with
+      | Tstr_eval _ -> str
+
       | Tstr_value (_, pat_exps) -> 
-          of rec_flag * (pattern * expression) list
-  | Tstr_primitive of Ident.t * value_description
-  | Tstr_type of (Ident.t * type_declaration) list
-  | Tstr_exception of Ident.t * exception_declaration
-  | Tstr_exn_rebind of Ident.t * Path.t
-  | Tstr_module of Ident.t * module_expr
-  | Tstr_recmodule of (Ident.t * module_type * module_expr) list
-  | Tstr_modtype of Ident.t * module_type
-  | Tstr_open of Path.t
-  | Tstr_class of (class_declaration * string list * virtual_flag) list
-(*      (Ident.t * int * string list * class_expr * virtual_flag) list *)
-  | Tstr_class_type of (Ident.t * class_type_declaration) list
-  | Tstr_include of module_expr * Ident.t list
+          let ids = let_bound_idents pat_exps in
+          List.map (fun id -> (id, (Kind.Value, z_of_id id))) ids @ str
 
+      | Tstr_primitive (id, _vdesc) -> (id, (Kind.Special_value, z_of_id id)) :: str
 
-      | Str_value id 
-      | Str_type id
-      | Str_exception id
-      | Str_class id
-      | Str_cltype id ->
-          (* CR jfuruse: not sure *)
-          let pident = { PIdent.path = env0.Env.path; ident = Some id } in
-          let v = Ident pident in
-          let kind = 
-            match sitem with
-            | Str_value _ -> Kind.Value
-            | Str_type _ -> Kind.Type
-            | Str_exception _ -> Kind.Exception
-            | Str_modtype _ -> Kind.Module_type
-            | Str_class _ -> Kind.Class
-            | Str_cltype _ -> Kind.Class_type
-            | Str_module _ | Str_include _ -> assert false
-            | Str_value_alias _ -> assert false
-          in
-          (id, (kind, eager v)) :: str
+      | Tstr_type id_typedecls ->
+          List.map (fun (id,_) -> (id, (Kind.Type, z_of_id id))) id_typedecls @ str
 
-      | Str_value_alias (id, path) ->
-          (id, (Kind.Value, find_path env0 (Kind.Value, path))) :: str
+      | Tstr_exception (id, _) 
+      | Tstr_exn_rebind (id, _) ->  (id, (Kind.Exception, z_of_id id)) :: str 
 
-      (* CR: very ad-hoc rule for functor parameter *)      
-      | Str_module (id, Mod_ident (Path.Pdot (Path.Pident _id, 
-                                              "parameter", 
-                                              -2))) ->
-          (* id = id_ *)
-          let pident = { PIdent.path = env0.Env.path; ident = Some id } in
-          (id, (Kind.Module, eager (Parameter pident))) :: str
+      | Tstr_open _ -> str
+
+      | Tstr_class clist -> 
+          List.map (fun (cinfo, _, _) -> (cinfo.ci_id_class, (Kind.Class, z_of_id cinfo.ci_id_class))) clist @ str
+
+      | Tstr_class_type id_ctdecls ->
+          List.map (fun (id, _) -> (id, (Kind.Class, z_of_id id))) id_ctdecls @ str
           
-      | Str_module (id, mexp) ->
+      | Tstr_module (id, mexp) -> 
           let v = lazy begin
             try
               (* create it lazily for recursiveness of flat *)
@@ -496,36 +518,48 @@ module Eval = struct
           in
           (id, (Kind.Module, v)) :: str
 
-      | Str_modtype (id, mexp) ->
-          (* CR jfuruse: dup code *)
+      | Tstr_recmodule id_mty_mexps ->
+          let make_v id mexp = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(module_expr env (Some id) mexp)
+            with
+            | exn -> Error exn
+          end
+          in
+          List.map (fun (id, _mty, mexp) ->
+            (id, (Kind.Module, make_v id mexp))) id_mty_mexps @ str
+
+      | Tstr_modtype (id, mty) ->
           let v = lazy begin
             try
               (* create it lazily for recursiveness of flat *)
               let env = Env.overrides env0 str in
-              !!(module_expr env (Some id) mexp) (* ??? *)
+              !!(module_type env (Some id) mty) (* ??? *)
             with
             | exn -> Error exn
           end
           in
           (id, (Kind.Module_type, v)) :: str
 
-      | Str_include (mexp, kids) ->
-          (* be careful: everything must be done lazily *)
-          let v = lazy begin
-            (* createate it lazily for recursiveness of flat *)
-            let env = Env.overrides env0 str in
-            !!(module_expr env None(*?*) mexp)
-          end in
-          let kname_ztbl = 
-            lazy begin match !!v with
-            | Structure (_, str, _ (* CR jfuruse *) ) -> 
-                List.map (fun (id, (k, v)) -> (k, Ident0.name id), v) str
-            | Parameter pid -> 
-                List.map (fun (k,id) -> 
-                  (k, Ident0.name id), eager (Parameter pid)) kids
-            | Ident _ -> assert false
-            | Closure _ -> assert false
-            | Error _ -> [] (* error *)
+      | Tstr_include (mexp, exported_ids) -> 
+          let kids = kident_of_include exported_ids mexp in 
+          let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
+            lazy begin 
+              let v_mexp = 
+                (* createate it lazily for recursiveness of flat *)
+                let env = Env.overrides env0 str in
+                !!(module_expr env None(*?*) mexp)
+              in
+              match v_mexp with
+              | Structure (_, str, _ (* CR jfuruse *) ) -> 
+                  List.map (fun (id, (k, v)) -> (k, Ident0.name id), v) str
+              | Parameter pid -> 
+                  List.map (fun (k,id) -> (k, Ident0.name id), eager (Parameter pid)) kids
+              | Ident _ -> assert false
+              | Closure _ -> assert false
+              | Error _ -> [] (* error *)
             end
           in
           let str' =
@@ -550,8 +584,11 @@ module Eval = struct
     | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
-    | Closure (_, env, id, _mty, mexp) -> 
-        !!(module_expr (Env.override env (id, (Kind.Module, v2)))
-          None(*?*) mexp)
+    | Closure (_, env, id, _mty, mexp_or_mty) -> 
+        match mexp_or_mty with
+        | Module_expr mexp ->
+            !!(module_expr (Env.override env (id, (Kind.Module, v2)))
+                 None(*?*) mexp)
+        | Module_type _mty -> assert false
     end
 end
