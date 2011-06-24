@@ -336,6 +336,8 @@ module Eval = struct
   let str_of_global_ident = ref (fun ~load_paths:_ _ -> assert false : load_paths: string list -> Ident.t -> string * Value.structure)
   let packed = ref (fun _ _ -> assert false : Env.t -> string -> Value.t)
 
+  let z_of_id env id = eager (Ident { PIdent.path = env.Env.path; ident = Some id })
+
   let rec find_path env (kind, p) : Value.z = 
     match p with
     | Path.Papply (p1, p2) -> 
@@ -480,31 +482,29 @@ module Eval = struct
      but it is REQUIRED for environment query *)
   and structure env0 str : Value.structure =
 
-    let z_of_id id = eager (Ident { PIdent.path = env0.Env.path; ident = Some id }) in
-
     List.fold_left (fun str sitem ->
       match sitem.str_desc with
       | Tstr_eval _ -> str
 
       | Tstr_value (_, pat_exps) -> 
           let ids = let_bound_idents pat_exps in
-          List.map (fun id -> (id, (Kind.Value, z_of_id id))) ids @ str
+          List.map (fun id -> (id, (Kind.Value, z_of_id env0 id))) ids @ str
 
-      | Tstr_primitive (id, _vdesc) -> (id, (Kind.Special_value, z_of_id id)) :: str
+      | Tstr_primitive (id, _vdesc) -> (id, (Kind.Special_value, z_of_id env0 id)) :: str
 
       | Tstr_type id_typedecls ->
-          List.map (fun (id,_) -> (id, (Kind.Type, z_of_id id))) id_typedecls @ str
+          List.map (fun (id,_) -> (id, (Kind.Type, z_of_id env0 id))) id_typedecls @ str
 
       | Tstr_exception (id, _) 
-      | Tstr_exn_rebind (id, _) ->  (id, (Kind.Exception, z_of_id id)) :: str 
+      | Tstr_exn_rebind (id, _) ->  (id, (Kind.Exception, z_of_id env0 id)) :: str 
 
       | Tstr_open _ -> str
 
       | Tstr_class clist -> 
-          List.map (fun (cinfo, _, _) -> (cinfo.ci_id_class, (Kind.Class, z_of_id cinfo.ci_id_class))) clist @ str
+          List.map (fun (cinfo, _, _) -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
 
       | Tstr_class_type id_ctdecls ->
-          List.map (fun (id, _) -> (id, (Kind.Class, z_of_id id))) id_ctdecls @ str
+          List.map (fun (id, _) -> (id, (Kind.Class, z_of_id env0 id))) id_ctdecls @ str
           
       | Tstr_module (id, mexp) -> 
           let v = lazy begin
@@ -591,4 +591,16 @@ module Eval = struct
                  None(*?*) mexp)
         | Module_type _mty -> assert false
     end
+
+  and flat env flat_tbl : Value.structure =
+    Hashtbl.fold (fun id { Regioned.region = _reg; value = annot } st -> 
+      let open Annot in
+      match annot with
+      | Type _ | Mod_type _ | Non_expansive _ | Use _ | Functor_parameter _ -> st
+      | Def (k, _id, None) -> (id, (k, z_of_id env id)) :: st
+      | Def (_, _id, Some (Def_module_expr mexp)) -> (id, (Kind.Module, module_expr env (Some id) mexp)) :: st
+      | Def (_, _id, Some (Def_module_type mty)) -> (id, (Kind.Module_type, module_type env (Some id) mty)) :: st
+      | Def (_, _id, Some (Def_alias _)) -> assert false)
+      flat_tbl []
+
 end

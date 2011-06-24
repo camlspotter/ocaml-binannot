@@ -196,7 +196,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
         let tbl = Hashtbl.create 107 in
         List.iter (fun ({ Regioned.value = annot; _ } as rannot) ->
           match annot with
-          | Annot.Def (id, _) -> Hashtbl.add tbl id rannot
+          | Annot.Def (_, id, _) -> Hashtbl.add tbl id rannot
           | Annot.Functor_parameter id -> Hashtbl.add tbl id rannot
           | Annot.Type _ | Annot.Mod_type _ | Annot.Use _  | Annot.Non_expansive _ -> ()) rannots;
         tbl
@@ -348,7 +348,8 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
   let find_path_in_flat file path : PIdent.t * result =
     let env = 
       let env = invalid_env file in
-      let str = Eval.structure env file.flat in
+      (* let str : Value.structure = Eval.structure env file.flat in *)
+      let str : Value.structure = Eval.flat env file.flat in
       Binding.set env.Env.binding str; (* dirty hack *)
       env
     in
@@ -389,6 +390,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     in
     eval_and_find path
 
+(*
   let str_of_global_ident ~load_paths id =
     assert (Ident.global id);
     let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ident0.name id) in
@@ -404,6 +406,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                     None (* packed has no .mli *))
 
   let _ = Eval.packed := eval_packed
+*)
 
   let dump_elem = function
     | Source_path (Some s) -> Format.eprintf "Source_path: %s@." s

@@ -57,11 +57,11 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
   val invalid_env : file -> Env.t
 *)
 
-  type result = File_itself | Found_at of Region.t | Predefined
+  type result = File_itself | Found_at of Annot.t Regioned.t | Predefined
   
-(*
   val find_path_in_flat : file -> Kind.t * Path.t -> PIdent.t * result
 
+(*
   val str_of_global_ident : load_paths:string list -> Ident.t -> string * Value.structure
 
   val eval_packed : Env.t -> string -> Value.t

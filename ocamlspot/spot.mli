@@ -161,7 +161,7 @@ module Annot : sig
     | Non_expansive of bool
     | Use of Kind.t * Path.t
     | Functor_parameter of Ident.t
-    | Def of Ident.t * def option (* definition of Ident.t *)
+    | Def of Kind.t * Ident.t * def option (* definition of Ident.t *)
 
   val record_saved_type : Typedtree.saved_type -> unit
   val recorded : unit -> (Location.t * t) list

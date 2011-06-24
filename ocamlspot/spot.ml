@@ -562,7 +562,7 @@ module Annot = struct
     | Non_expansive of bool
     | Use of Kind.t * Path.t
     | Functor_parameter of Ident.t
-    | Def of Ident.t * def option (* definition of Ident.t *)
+    | Def of Kind.t * Ident.t * def option (* definition of Ident.t *) (* CR jfurus:  mmm, some invariants *)
 
   let equal t1 t2 =
     match t1, t2 with
@@ -571,7 +571,7 @@ module Annot = struct
     | Use (k1,p1), Use (k2,p2) -> k1 = k2 && p1 = p2
     | Non_expansive b1, Non_expansive b2 -> b1 = b2
     | Functor_parameter id1, Functor_parameter id2 -> id1 = id2
-    | Def (id1, _), Def (id2, _) -> id1 = id2
+    | Def (_, id1, _), Def (_, id2, _) -> id1 = id2
     | (Type _ | Mod_type _ | Def _ | Functor_parameter _ | Use _ | Non_expansive _),
       (Type _ | Mod_type _ | Def _ | Functor_parameter _ | Use _ | Non_expansive _) -> false 
 
@@ -624,8 +624,8 @@ module Annot = struct
     | Some path -> record loc (Use (Kind.Type, path))
     | None -> ()
 
-  let record_module_expr_def loc id modl = record loc (Def (id, Some (Def_module_expr modl)))
-  let record_module_type_def loc id mty = record loc (Def (id, Some (Def_module_type mty)))
+  let record_module_expr_def loc id modl = record loc (Def (Kind.Module, id, Some (Def_module_expr modl)))
+  let record_module_type_def loc id mty = record loc (Def (Kind.Module_type, id, Some (Def_module_type mty)))
   let record_include_sig _loc _mty = () (* TODO *)
   let record_include _loc _modl _exported_ids = () (* TODO *)
 
@@ -636,9 +636,9 @@ module Annot = struct
       let loc = pattern.pat_loc in
       record loc (Type pattern.pat_type);
       match pattern.pat_desc with
-      | Tpat_var id -> record loc (Def (id, None))
+      | Tpat_var id -> record loc (Def (Kind.Value, id, None))
       | Tpat_alias (_, TPat_constraint _) -> ()
-      | Tpat_alias (_, TPat_alias id) -> record loc (Def (id, None))
+      | Tpat_alias (_, TPat_alias id) -> record loc (Def (Kind.Value, id, None))
       | Tpat_alias (_, TPat_type _path) -> assert false (* CR jfuruse: todo *)
       | Tpat_construct (_path, constr, _pats) ->
           begin match constr.Types.cstr_tag with
@@ -700,7 +700,7 @@ module Annot = struct
       | Texp_ifthenelse _ -> ()
       | Texp_sequence _ -> ()
       | Texp_while _ -> ()
-      | Texp_for (id, _exp1, _exp2, _dir, _exp3) -> record loc (Def (id, None))
+      | Texp_for (id, _exp1, _exp2, _dir, _exp3) -> record loc (Def (Kind.Value, id, None))
       | Texp_when _ -> ()
       | Texp_send _ -> ()
       | Texp_new (path, _) -> record loc (Use (Kind.Class, path))
@@ -729,17 +729,17 @@ module Annot = struct
       let loc = item.sig_loc in
       match item.sig_desc with
         | Tsig_value (id, v) ->
-            record loc (Def (id, None));
+            record loc (Def (Kind.Value, id, None));
             record loc (Type v.val_desc.ctyp_type)
         | Tsig_type list ->
             List.iter (fun (id, decl) ->
-	      record decl.typ_loc (Def (id, None))
+	      record decl.typ_loc (Def (Kind.Type,id, None))
             ) list
-        | Tsig_exception (id, _decl) -> record loc (Def (id, None))
+        | Tsig_exception (id, _decl) -> record loc (Def (Kind.Exception, id, None))
         | Tsig_module (id, mtype) -> record_module_type_def mtype.mty_loc id mtype
         | Tsig_recmodule list ->
             List.iter (fun (id, mtype) -> record_module_type_def mtype.mty_loc id mtype) list
-        | Tsig_modtype (id, Tmodtype_abstract) -> record loc (Def (id, None))
+        | Tsig_modtype (id, Tmodtype_abstract) -> record loc (Def (Kind.Module, id, None))
         | Tsig_modtype (id, Tmodtype_manifest mty) -> record_module_type_def mty.mty_loc id mty
         | Tsig_open path -> record loc (Use (Kind.Module, path))
         | Tsig_include mty -> record_include_sig loc mty
@@ -751,12 +751,12 @@ module Annot = struct
       match item.str_desc with
       | Tstr_eval _ -> ()
       | Tstr_value _ -> ()
-      | Tstr_primitive (id, _v) -> record loc (Def (id, None))
+      | Tstr_primitive (id, _v) -> record loc (Def (Kind.Special_value, id, None))
       | Tstr_type list ->
-          List.iter (fun (id, decl) -> record decl.typ_loc (Def (id, None))) list
-      | Tstr_exception (id, _decl) -> record loc (Def (id, None))
+          List.iter (fun (id, decl) -> record decl.typ_loc (Def (Kind.Type, id, None))) list
+      | Tstr_exception (id, _decl) -> record loc (Def (Kind.Exception, id, None))
       | Tstr_exn_rebind (id, p) -> 
-          record loc (Def (id, None));
+          record loc (Def (Kind.Exception, id, None));
           record loc (Use (Kind.Exception, p)) (* CR jfuruse: loc can be improved *)
       | Tstr_module (id, mexpr) -> record_module_expr_def loc id mexpr
       | Tstr_recmodule list ->
@@ -806,15 +806,16 @@ module Annot = struct
       | Tmty_typeof _ -> ()
 
     let enter_class_infos cl_info = 
-      record cl_info.ci_loc (Def (cl_info.ci_id_class, None));
-      record cl_info.ci_loc (Def (cl_info.ci_id_class_type, None));
-      record cl_info.ci_loc (Def (cl_info.ci_id_typesharp, None));
-      record cl_info.ci_loc (Def (cl_info.ci_id_object, None))
+      (* CR jfuruse: kind? *)
+      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_class, None));
+      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_class_type, None));
+      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_typesharp, None));
+      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_object, None))
 
     let add_var_aliases loc (var_rename : (Ident.t * expression) list) = 
       List.iter (fun (id, exp) ->
         match exp.exp_desc with
-        | Texp_ident (path, _) -> record loc (Def (id, Some (Def_alias path)))
+        | Texp_ident (path, _) -> record loc (Def (Kind.Value (* CR ? *), id, Some (Def_alias path)))
         | _ -> assert false) var_rename
 
     let enter_class_expr cexpr =
@@ -832,8 +833,8 @@ module Annot = struct
     let enter_class_field cf =
       match cf.cf_desc with
       | Tcf_inher (_, _, _super (* ? *), vals, meths) -> 
-          List.iter (fun id -> record cf.cf_loc (Def (id, None))) (List.map snd vals @ List.map snd meths)
-      | Tcf_val (_, _, id, _, _) -> record cf.cf_loc (Def (id, None))
+          List.iter (fun id -> record cf.cf_loc (Def (Kind.Value (* CR *), id, None))) (List.map snd vals @ List.map snd meths)
+      | Tcf_val (_, _, id, _, _) -> record cf.cf_loc (Def (Kind.Value, id, None))
       | Tcf_meth (_mtname, _, _, _) -> ()
       | Tcf_constr _ -> ()
       | Tcf_let (_, _, var_rename) -> 
@@ -903,8 +904,8 @@ end
     | Mod_type mty -> 
 	Format.fprintf ppf "Type: %a@ " (Printtyp.modtype ~with_pos:false) mty;
 	Format.fprintf ppf "XType: %a" (Printtyp.modtype ~with_pos:true) mty
-    | Def (id, _) -> 
-	Format.fprintf ppf "Def: %s" (Ident.name id)
+    | Def (k, id, _) -> 
+	Format.fprintf ppf "Def: %s %s" (Kind.to_string k) (Ident.name id)
 (*
     | Str str ->
 	Format.fprintf ppf "Str: %a"
@@ -931,8 +932,8 @@ end
     | Mod_type _mty -> 
 	Format.fprintf ppf "Type: ...@ ";
 	Format.fprintf ppf "XType: ..."
-    | Def (id, _) -> 
-	Format.fprintf ppf "Def: %s" (Ident.name id)
+    | Def (k, id, _) -> 
+	Format.fprintf ppf "Def: %s %s" (Kind.to_string k) (Ident.name id)
     | Use (use, path) ->
 	Format.fprintf ppf "Use: %s, %s" 
 	  (String.capitalize (Kind.name use)) (Path.name path)

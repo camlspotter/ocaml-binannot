@@ -20,7 +20,6 @@ module PIdent : sig
   val format : Format.formatter -> t -> unit
 end
 
-(*
 module Value : sig
 
   type module_expr_or_type = 
@@ -122,5 +121,6 @@ module Eval : sig
   val signature : Env.t -> Typedtree.signature -> Value.structure
     
   val apply : Value.z -> Value.z -> Value.z
+
+  val flat : Env.t -> (Ident.t, Annot.t Regioned.t) Hashtbl.t -> Value.structure
 end
-*)

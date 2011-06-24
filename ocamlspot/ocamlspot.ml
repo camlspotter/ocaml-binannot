@@ -126,10 +126,10 @@ module Main = struct
         match res with
 	| File.File_itself ->
             Format.printf "Spot: <%s:all>@." pident.PIdent.path
-	| File.Found_at region ->
+	| File.Found_at rannot ->
             Format.printf "Spot: <%s:%s>@."
               pident.PIdent.path
-              (Region.to_string region)
+              (Region.to_string rannot.Regioned.region)
 	| File.Predefined ->
             Format.printf "Spot: %a: predefined %s@."
               PIdent.format pident
@@ -205,7 +205,7 @@ module Main = struct
             | [] -> None
           in
           let rec find_str_value = function
-            | Annot.Def (id, _) :: _ -> Some id
+            | Annot.Def (_, id, _) :: _ -> Some id
             | _::xs -> find_str_value xs
             | [] -> None
           in
@@ -233,7 +233,7 @@ module Main = struct
         print_query_result k (query_by_kind_path file k path)
 
     | C.SearchSpec.Pos pos -> 
-	let _annots = query_by_pos file pos in
+	let annots = query_by_pos file pos in
         if not C.no_definition_analysis then begin
           List.iter (function
             | Annot.Use (kind, path) -> 
