@@ -29,16 +29,18 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
   val dump_package : prefix: string -> source: string -> string list -> unit
 *)
 
+  type top = 
+    | Saved_type of Typedtree.saved_type
+    | Packed of string list
+
   (* loaded file *)    
   type file = {
     path : string; (* "" means no source *)
     cwd : string;
     load_paths : string list;
-(*
-    version : string * string;
-*)
+    (* version : string * string; *)
     argv : string array;
-    top : Typedtree.saved_type option;
+    top : top option;
     rannots : Annot.t Regioned.t list;
     tree : Tree.t lazy_t;
     flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;

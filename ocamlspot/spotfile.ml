@@ -25,29 +25,29 @@ open Spoteval
 module Make(Spotconfig : Spotconfig_intf.S) = struct
   include Spot.File
 
+  type top = 
+    | Saved_type of Typedtree.saved_type
+    | Packed of string list
+
   type file = {
     path : string; (* "" means no source *)
     cwd : string;
     load_paths : string list;
-(*
-    version : string * string;
-*)
+    (* version : string * string; *)
     argv : string array;
 
-    top : Typedtree.saved_type option;
-(*
-    flat : Abstraction.structure;
-*)
+    top : top option;
     rannots : Annot.t Regioned.t list;
     tree : Tree.t lazy_t;
     flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;
+    (* flat : Abstraction.structure; *)
   }
 
   let dump_file file =
 (*
     Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
 *)
-    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |]; ... }@]@."
+    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |];@ top= @[%a@] }@]@."
       (match file.path with 
       | "" -> "NONE"
       | s -> s)
@@ -57,6 +57,11 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       (fst file.version) (snd file.version)
 *)
       (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
+      (fun ppf -> function
+        | None -> Format.fprintf ppf "NoTOP"
+        | Some (Saved_type _) -> Format.fprintf ppf "saved_type..."
+        | Some (Packed paths) -> 
+            Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s) ppf paths) file.top
 
   (* xxx.{ml,cmo,cmx,cmt} => xxx.cmt
      xxx.{mli,cmi,cmti} => xxx.cmti
@@ -160,19 +165,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
       let rannots, top = 
         if packed <> [] then begin
-
-(*
           let rannots = [] in
-          let top = List.map (fun f -> 
-            let module_name = 
-              String.capitalize (Filename.chop_extension (Filename.basename f))
-            in
-            Abstraction.Str_module (Ident0.create module_name, (* CR jfuruse: stamp is bogus *)
-                                    Abstraction.Mod_packed f)) packed
-          in
+          let top = Some (Packed packed) in
           rannots, top
-*)
-          assert false
 
         end else begin
           Array.iter Annot.record_saved_type file;
@@ -182,7 +177,10 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                 value = annot }) (Annot.recorded ())
           in
           let top = Annot.recorded_top () in
-          rannots, top
+          rannots, 
+          match top with
+          | None -> None
+          | Some st -> Some (Saved_type st)
         end
       in
         
@@ -225,22 +223,22 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
           Hashtbl.find cache path
         with
         | Not_found ->
-              try
-                let file = load_directly path in
-                begin match file.path with 
-                | "" -> ()
-                | source -> 
-                    if not (check_time_stamp ~spot:path source) then 
-                      if Spotconfig.strict_time_stamp then 
-                        raise (Old_spot (path, source))
-                      else
-                        Format.eprintf "Warning: source %s is newer than the spot@." source
-                end;
-                Hashtbl.replace cache path file;
-                file
-              with
-              | Not_found ->
-                  failwith (Printf.sprintf "failed to find spot file %s" path)
+            try
+              let file = load_directly path in
+              begin match file.path with 
+              | "" -> ()
+              | source -> 
+                  if not (check_time_stamp ~spot:path source) then 
+                    if Spotconfig.strict_time_stamp then 
+                      raise (Old_spot (path, source))
+                    else
+                      Format.eprintf "Warning: source %s is newer than the spot@." source
+              end;
+              Hashtbl.replace cache path file;
+              file
+            with
+            | Not_found ->
+                failwith (Printf.sprintf "failed to find spot file %s" path)
 
     let find_in_path load_paths body ext =
       let body_ext = body ^ ext in
@@ -392,17 +390,32 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     in
     eval_and_find path
 
-  let str_of_global_ident ~load_paths id =
-    assert (Ident.global id);
-    let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ident0.name id) in
+  let rec structure_of_file file : string * Value.structure =
     let structure = 
-      match file.top with
-      | Some (Typedtree.Saved_implementation str) -> str
+      match file.top with (* The only use of .top *)
+      | Some (Saved_type (Typedtree.Saved_implementation str)) -> 
+          Eval.structure (empty_env file) str
+
+      | Some (Packed paths) -> 
+          let id_strs = 
+            List.map (fun path -> 
+              let file = Load.load ~load_paths:file.load_paths (cmt_of_file path) in
+              let path, str = structure_of_file file in 
+              let id = Ident0.create_persistent (String.capitalize (Filename.chop_extension (Filename.basename path))) in
+              id, { PIdent.path = path; ident = Some id }, str
+            ) paths 
+          in
+          List.map (fun (id, pident, str) -> 
+            id, (Kind.Module, eager (Value.Structure (pident, str, None)))) id_strs
       | Some _ -> assert false
       | None -> assert false
     in
-    file.path,
-    Eval.structure (empty_env file) structure
+    file.path, structure
+
+  let str_of_global_ident ~load_paths id =
+    assert (Ident.global id);
+    let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ident0.name id) in
+    structure_of_file file
 
   let _ = Eval.str_of_global_ident := str_of_global_ident
 

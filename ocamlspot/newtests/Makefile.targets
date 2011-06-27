@@ -43,6 +43,9 @@ new_fstclassmdl.cmo \
 new_include_with_primitive.cmo \
 new_inherit_let.cmo \
 new_letmodule.cmo \
+new_pack_pack_use.cmo \
+new_pack_use.cmo \
+new_packed.cmo \
 new_record_label.cmo \
 new_sig_include.cmi \
 new_test.cmo \

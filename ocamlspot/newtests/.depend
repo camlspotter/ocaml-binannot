@@ -88,6 +88,12 @@ new_inherit_let.cmo:
 new_inherit_let.cmx:
 new_letmodule.cmo:
 new_letmodule.cmx:
+new_pack_pack_use.cmo:
+new_pack_pack_use.cmx:
+new_pack_use.cmo:
+new_pack_use.cmx:
+new_packed.cmo:
+new_packed.cmx:
 new_record_label.cmo:
 new_record_label.cmx:
 new_test.cmo:
@@ -184,8 +190,8 @@ with_type2.cmo:
 with_type2.cmx:
 z.cmo:
 z.cmx:
-zz.cmo:
-zz.cmx:
+zz.cmo: z.cmo
+zz.cmx: z.cmx
 dummy/dummy.cmi:
 dir1/test4.cmo: test.cmo
 dir1/test4.cmx: test.cmx

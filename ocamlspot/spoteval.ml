@@ -493,7 +493,7 @@ module Eval = struct
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.path = env.path; ident = idopt }, 
                         env, id, mty1, Module_type mty2))
-    | Tmty_with (_, _) -> assert false (* module_type * (Path.t * with_constraint) list *)
+    | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
 
   (* expand internal Include and get alist by Ident.t *)

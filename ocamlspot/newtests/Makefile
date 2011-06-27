@@ -49,6 +49,16 @@ test5.cmo: test5.ml
 dir2/test6.cmo: dir2/test6.ml
 	$(OCAMLC) -c -I dir2 -o $@ $<
 
+new_pack.cmo: new_packed.cmo
+	$(OCAMLC) -pack -o $@ $<
+
+new_pack_pack.cmo: new_pack.cmo
+	$(OCAMLC) -pack -o $@ $<
+
+new_pack_use.cmo: new_pack.cmo
+
+new_pack_pack_use.cmo: new_pack_pack.cmo
+
 clean:
 	rm -f *.cm* *.o *.annot *.sp*t  */*.cm* */*.annot
 
