@@ -62,11 +62,16 @@ module Dump = struct
     Format.eprintf "XXX@.";
   ;;
 
-  let flat _file =
-    Format.eprintf "XXX@.";
-(*
+  let flat file =
     Format.eprintf "@[<2>flat =@ @[%a@]@]@." 
-      Abstraction.format_structure file.File.flat;
+      (Format.list "; "
+         (fun ppf (id, rannot) ->
+           Format.fprintf ppf "%s : %a"
+             (Ident.name id)
+             (Regioned.format Annot.format) rannot))
+      (Hashtbl.to_list file.File.flat)
+           
+(*
     let str = 
       let env = File.invalid_env file in
       let str = Eval.structure env file.File.flat in

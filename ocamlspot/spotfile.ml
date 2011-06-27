@@ -347,7 +347,8 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   let find_path_in_flat file path : PIdent.t * result =
     let env = 
-      let env = invalid_env file in
+      (* let env = invalid_env file in *)
+      let env = empty_env file in (* CR jfuruse: why it was invalid? *)
       (* let str : Value.structure = Eval.structure env file.flat in *)
       let str : Value.structure = Eval.flat env file.flat in
       Binding.set env.Env.binding str; (* dirty hack *)
@@ -375,9 +376,10 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
               end
     in
     
-    let eval_and_find path =
+    let eval_and_find kpath =
       (* we need evaluate the path *)
-      let v = !!(Eval.find_path env path) in
+      Debug.format "eval_and_find %s@." (Path.name (snd kpath));
+      let v = !!(Eval.find_path env kpath) in
       Debug.format "Value=%a@." Value.Format.t v;
       match v with
       | Value.Ident id -> id, find_loc id
@@ -390,15 +392,21 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     in
     eval_and_find path
 
-(*
   let str_of_global_ident ~load_paths id =
     assert (Ident.global id);
     let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ident0.name id) in
+    let structure = 
+      match file.top with
+      | Some (Typedtree.Saved_implementation str) -> str
+      | Some _ -> assert false
+      | None -> assert false
+    in
     file.path,
-    Eval.structure (empty_env file) file.top
+    Eval.structure (empty_env file) structure
 
   let _ = Eval.str_of_global_ident := str_of_global_ident
 
+(*
   let eval_packed env file =
     let f = Load.load ~load_paths:[""] (cmt_of_file (env.Env.cwd ^/ file)) in
     Value.Structure ({ PIdent.path = f.path; ident = None },

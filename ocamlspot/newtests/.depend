@@ -90,6 +90,8 @@ new_letmodule.cmo:
 new_letmodule.cmx:
 new_record_label.cmo:
 new_record_label.cmx:
+new_test.cmo:
+new_test.cmx:
 new_var_in_open_module.cmo:
 new_var_in_open_module.cmx:
 object.cmo:
@@ -180,6 +182,10 @@ with_type.cmo:
 with_type.cmx:
 with_type2.cmo:
 with_type2.cmx:
+z.cmo:
+z.cmx:
+zz.cmo:
+zz.cmx:
 dummy/dummy.cmi:
 dir1/test4.cmo: test.cmo
 dir1/test4.cmx: test.cmx

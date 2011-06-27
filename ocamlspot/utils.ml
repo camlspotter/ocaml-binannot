@@ -238,3 +238,8 @@ module Unix = struct
       else find_non_dir path) fnames
   ;;
 end
+
+module Hashtbl = struct
+  include Hashtbl
+  let to_list tbl = Hashtbl.fold (fun k v st -> (k,v)::st) tbl []
+end

@@ -555,6 +555,7 @@ module Annot = struct
     | Def_module_expr of Typedtree.module_expr
     | Def_module_type of Typedtree.module_type
     | Def_alias of Path.t
+    | Def_included of Typedtree.module_expr * Ident.t
 
   type t =
     | Type of Types.type_expr (* sub-expression's type *)
@@ -627,7 +628,56 @@ module Annot = struct
   let record_module_expr_def loc id modl = record loc (Def (Kind.Module, id, Some (Def_module_expr modl)))
   let record_module_type_def loc id mty = record loc (Def (Kind.Module_type, id, Some (Def_module_type mty)))
   let record_include_sig _loc _mty = () (* TODO *)
-  let record_include _loc _modl _exported_ids = () (* TODO *)
+
+  (* CR jfuruse: DUP: Spoteval.kident_of_include *)
+  let include_coercion exported_value_ids included_mexp : (Kind.t * Ident.t (*out*) * Ident.t (*in*)) list = 
+    let open Types in
+    let mty = Mtype.scrape included_mexp.mod_env included_mexp.mod_type in
+    match mty with
+    | Mty_functor _ -> assert false (* Including a functor?! *)
+    | Mty_ident _ -> assert false (* Including an abstract module?! *)
+    | Mty_signature sg ->
+        let internal_value_ids = Typemod.bound_value_identifiers sg in
+        let value_id_table = List.combine internal_value_ids exported_value_ids in
+        let kident_of_sigitem = function
+          | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
+          | Sig_value (id, _) -> Kind.Special_value, id
+          | Sig_exception (id, _) -> Kind.Exception, id
+          | Sig_module (id, _, _) ->  Kind.Module, id
+          | Sig_class (id, _, _) -> Kind.Class, id
+
+          | Sig_type (id, _, _) -> Kind.Type, id
+          | Sig_modtype (id, _) -> Kind.Module_type, id
+          | Sig_class_type (id, _, _) -> Kind.Class_type, id
+        in
+        let kids = List.map kident_of_sigitem sg in
+        (* Fixing internal ids to exported ids.
+           Non value ids are replaced by id with -2 *)
+        let fixed = List.map (fun (k, id) ->
+          (k, 
+           (try List.assoc id value_id_table with Not_found -> 
+             Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)),
+           id))
+          kids
+        in
+(*
+        prerr_endline "fixing kids";
+        Format.eprintf "exported: @[%a@]@."
+          (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
+        Format.eprintf "sig: @[%a@]@."
+          (Format.list ", " (fun ppf (k,id) -> 
+            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) kids;
+        Format.eprintf "fixed: @[%a@]@."
+          (Format.list ", " (fun ppf (k,id) -> 
+            Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
+*)
+        fixed
+
+  let record_include loc modl exported_ids =
+    (* include defines new identifiers, and they must be registered into the flat db *)
+    let kidents = include_coercion exported_ids modl in
+    List.iter (fun (k, id_out, id_in) ->
+      record loc (Def (k, id_out, Some (Def_included (modl, id_in))))) kidents
 
   module IteratorArgument = struct
     include DefaultIteratorArgument
@@ -808,9 +858,9 @@ module Annot = struct
     let enter_class_infos cl_info = 
       (* CR jfuruse: kind? *)
       record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_class, None));
-      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_class_type, None));
-      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_typesharp, None));
-      record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_object, None))
+      record cl_info.ci_loc (Def (Kind.Class_type, cl_info.ci_id_class_type, None)); (* CR jfuruse: ? *)
+      record cl_info.ci_loc (Def (Kind.Type , cl_info.ci_id_typesharp, None)); (* CR jfuruse: ? *)
+      record cl_info.ci_loc (Def (Kind.Type, cl_info.ci_id_object, None))
 
     let add_var_aliases loc (var_rename : (Ident.t * expression) list) = 
       List.iter (fun (id, exp) ->
@@ -894,6 +944,12 @@ end
 
   let recorded_top () = !recorded_top
 
+  let format_def ppf = function
+    | Def_module_expr _ -> Format.fprintf ppf "module_expr"
+    | Def_module_type _ -> Format.fprintf ppf "module_type"
+    | Def_alias p -> Format.fprintf ppf "alias %s" (Path.name p)
+    | Def_included (_mdl, id) -> Format.fprintf ppf "included _ %s" (Ident.name id)
+
   let format ppf = function
     | Type typ -> 
 	Printtyp.reset ();
@@ -904,8 +960,10 @@ end
     | Mod_type mty -> 
 	Format.fprintf ppf "Type: %a@ " (Printtyp.modtype ~with_pos:false) mty;
 	Format.fprintf ppf "XType: %a" (Printtyp.modtype ~with_pos:true) mty
-    | Def (k, id, _) -> 
-	Format.fprintf ppf "Def: %s %s" (Kind.to_string k) (Ident.name id)
+    | Def (k, id, None) -> 
+        Format.fprintf ppf "Def: %s %s None" (Kind.to_string k) (Ident.name id)
+    | Def (k, id, Some def) -> 
+        Format.fprintf ppf "Def: %s %s %a" (Kind.to_string k) (Ident.name id) format_def def
 (*
     | Str str ->
 	Format.fprintf ppf "Str: %a"
@@ -932,8 +990,10 @@ end
     | Mod_type _mty -> 
 	Format.fprintf ppf "Type: ...@ ";
 	Format.fprintf ppf "XType: ..."
-    | Def (k, id, _) -> 
-	Format.fprintf ppf "Def: %s %s" (Kind.to_string k) (Ident.name id)
+    | Def (k, id, None) -> 
+	Format.fprintf ppf "Def: %s %s None" (Kind.to_string k) (Ident.name id)
+    | Def (k, id, Some def) -> 
+        Format.fprintf ppf "Def: %s %s %a" (Kind.to_string k) (Ident.name id) format_def def
     | Use (use, path) ->
 	Format.fprintf ppf "Use: %s, %s" 
 	  (String.capitalize (Kind.name use)) (Path.name path)

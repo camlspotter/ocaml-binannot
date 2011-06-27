@@ -109,10 +109,14 @@ sub test {
                 $message = "$message$&\n";
                 $result = check_file_head($1);
             }
-	    if( /^Spot: <(.*):l[0-9]+c[0-9]+b([0-9]+):l[0-9]+c[0-9]+b([0-9]+)>$/ ){
+	    if( /^Spot: <(.*):l[0-9]+c[0-9]+b([0-9]+):l[0-9]+c[0-9]+b([0-9]+)>$|^Spot: <(.*):[0-9]+_[0-9]+_([0-9]+):[0-9]+_[0-9]+_([0-9]+)>$/ ){
 		$tested = 1;
 		$message = "$message$&\n";
-		$result = check_result($1, $2, $3);
+		if( $1 ne "" ){
+		    $result = check_result($1, $2, $3);
+		} else {
+		    $result = check_result($4, $5, $6);
+		}
             }
             if( $tested ){
                 if( $test_name eq $result ){

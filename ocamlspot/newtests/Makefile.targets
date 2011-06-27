@@ -96,3 +96,5 @@ variant.cmo \
 variant_external.cmo \
 with_type.cmo \
 with_type2.cmo \
+z.cmo \
+zz.cmo \

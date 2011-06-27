@@ -89,6 +89,26 @@ let kident_of_include exported_value_ids included_mexp =
 
       fixed
         
+(* CR jfuruse: DUP *)
+let kident_of_mty mty = 
+  let open Typedtree in
+  let open Types in
+  match mty with
+  | Mty_functor _ -> assert false (* Including a functor?! *)
+  | Mty_ident _ -> assert false (* Including an abstract module?! *)
+  | Mty_signature sg ->
+      let kident_of_sigitem = function
+        | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
+        | Sig_value (id, _) -> Kind.Special_value, id
+        | Sig_exception (id, _) -> Kind.Exception, id
+        | Sig_module (id, _, _) ->  Kind.Module, id
+        | Sig_class (id, _, _) -> Kind.Class, id
+
+        | Sig_type (id, _, _) -> Kind.Type, id
+        | Sig_modtype (id, _) -> Kind.Module_type, id
+        | Sig_class_type (id, _, _) -> Kind.Class_type, id
+      in
+      List.map kident_of_sigitem  sg
 
 module Value : sig
 
@@ -183,10 +203,9 @@ end = struct
       
   module Binding = struct
     type t = binding
-    let error () = raise (Failure "Binding: premature")
     let with_check f t = 
       match !t with
-      | None -> error ()
+      | None -> raise (Failure "Binding: premature") 
       | Some str -> f str
     let domain = with_check (List.map fst) 
     let domain_with_kind = with_check (List.map (fun (id, (k, _)) -> (id, k)))
@@ -576,7 +595,86 @@ module Eval = struct
           in
           str' @ str) [] str.str_items
 
-  and signature _env0 _sitems : Value.structure = assert false
+  and signature env0 sg : Value.structure = 
+
+    List.fold_left (fun str sitem ->
+      match sitem.sig_desc with
+      | Tsig_open _ -> str
+      | Tsig_value (id, { val_val = { Types.val_kind = Types.Val_prim _; _ }; _ }) -> (id, (Kind.Special_value, z_of_id env0 id)) :: str
+      | Tsig_value (id, _) -> (id, (Kind.Value, z_of_id env0 id)) :: str
+      | Tsig_type id_typedecls -> List.map (fun (id,_) -> (id, (Kind.Type, z_of_id env0 id))) id_typedecls @ str
+      | Tsig_exception (id, _) ->  (id, (Kind.Exception, z_of_id env0 id)) :: str 
+      | Tsig_class clist -> 
+          List.map (fun cinfo -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
+      | Tsig_class_type clist ->
+          List.map (fun cinfo -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
+      | Tsig_module (id, mty) -> 
+          let v = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(module_type env (Some id) mty)
+            with
+            | exn -> Error exn
+          end
+          in
+          (id, (Kind.Module, v)) :: str
+      | Tsig_recmodule id_mtys ->
+          let make_v id mty = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(module_type env (Some id) mty)
+            with
+            | exn -> Error exn
+          end
+          in
+          List.map (fun (id, mty) -> (id, (Kind.Module, make_v id mty))) id_mtys @ str
+      | Tsig_modtype (_id, Tmodtype_abstract) -> str (* CR jfuruse: abstract type is ignored! *)
+      | Tsig_modtype (id, Tmodtype_manifest mty) ->
+          let v = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(module_type env (Some id) mty) (* ??? *)
+            with
+            | exn -> Error exn
+          end
+          in
+          (id, (Kind.Module_type, v)) :: str
+
+      | Tsig_include mty -> 
+          let kids = kident_of_mty mty.mty_type in 
+          let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
+            lazy begin 
+              let v_mexp = 
+                (* createate it lazily for recursiveness of flat *)
+                let env = Env.overrides env0 str in
+                !!(module_type env None(*?*) mty)
+              in
+              match v_mexp with
+              | Structure (_, str, _ (* CR jfuruse *) ) -> 
+                  List.map (fun (id, (k, v)) -> (k, Ident0.name id), v) str
+              | Parameter pid -> 
+                  List.map (fun (k,id) -> (k, Ident0.name id), eager (Parameter pid)) kids
+              | Ident _ -> assert false
+              | Closure _ -> assert false
+              | Error _ -> [] (* error *)
+            end
+          in
+          let str' =
+            List.map (fun (k, id) ->
+              let v = 
+                lazy begin
+                  try
+                    !!(List.assoc (k, Ident0.name id) !!kname_ztbl)
+                  with
+                  | Not_found -> Error Not_found
+                end
+              in
+              id, (k, v)) kids
+          in
+          str' @ str) [] sg.sig_items
 
   and apply v1 v2 =
     lazy begin match !!v1 with
@@ -596,11 +694,23 @@ module Eval = struct
     Hashtbl.fold (fun id { Regioned.region = _reg; value = annot } st -> 
       let open Annot in
       match annot with
-      | Type _ | Mod_type _ | Non_expansive _ | Use _ | Functor_parameter _ -> st
+      | Type _ | Mod_type _ | Non_expansive _ | Use _ -> st
+      | Functor_parameter id -> (id, (Kind.Module, eager (Parameter { PIdent.path = env.Env.path; ident = Some id }))) :: st
       | Def (k, _id, None) -> (id, (k, z_of_id env id)) :: st
       | Def (_, _id, Some (Def_module_expr mexp)) -> (id, (Kind.Module, module_expr env (Some id) mexp)) :: st
       | Def (_, _id, Some (Def_module_type mty)) -> (id, (Kind.Module_type, module_type env (Some id) mty)) :: st
-      | Def (_, _id, Some (Def_alias _)) -> assert false)
-      flat_tbl []
+      | Def (k, _id, Some (Def_alias path)) -> (id, (k, find_path env (k, path))) :: st
+      | Def (k, _id, Some (Def_included (mexp, id'))) -> 
+          let z = lazy begin
+            let str = 
+              match !!(module_expr env None mexp) with
+              | Structure (_pid, str, _) -> str
+              | _ -> assert false
+            in
+            !!(find_ident str (k, Ident0.name id', Ident0.binding_time id'))
+          end
+          in
+          (id, (k, z)) :: st
+    ) flat_tbl []
 
 end
