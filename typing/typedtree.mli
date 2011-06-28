@@ -344,10 +344,10 @@ and class_type_declaration =
 and 'a class_infos =
   { ci_virt: virtual_flag;
     ci_params: string list * Location.t;
-    ci_id_class: Ident.t;
-    ci_id_class_type : Ident.t;
-    ci_id_object : Ident.t;
-    ci_id_typesharp : Ident.t;
+    ci_id_class: Ident.t; (* Class *)
+    ci_id_class_type : Ident.t; (* Class type *)
+    ci_id_object : Ident.t; (* Normal type *)
+    ci_id_typesharp : Ident.t; (* Sharp type *)
     ci_expr: 'a;
     ci_decl: Types.class_declaration;
     ci_type_decl : Types.class_type_declaration;
