@@ -11,6 +11,8 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(** Enhancements of OCaml ``standard'' library *)
+
 module List : sig
   include module type of List
   val find_map_opt : ('a -> 'b option) -> 'a list -> 'b option

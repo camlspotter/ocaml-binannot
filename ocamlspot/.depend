@@ -19,6 +19,8 @@ command.cmo: command.cmi
 command.cmx: command.cmi
 dotfile.cmo:
 dotfile.cmx:
+ocaml.cmo: ../typing/path.cmi ../typing/ident.cmi
+ocaml.cmx: ../typing/path.cmx ../typing/ident.cmx
 ocamlspot.cmo: xmain.cmi utils.cmi ../typing/typedtree.cmi spotfile.cmi \
     spoteval.cmi spotconfig.cmi spot.cmi ../typing/printtyp.cmi \
     ../typing/ident.cmi ../typing/annot.cmi abstraction.cmo

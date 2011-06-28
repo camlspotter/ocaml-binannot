@@ -1,6 +1,6 @@
 (***********************************************************************)
 (*                                                                     *)
-(*                            OCamlSpotter                             *)
+(*                            OcamlSpotter                             *)
 (*                                                                     *)
 (*                             Jun FURUSE                              *)
 (*                                                                     *)
@@ -15,8 +15,6 @@
    Need to be refactored *)
 
 open Utils
-
-module Ident0 = Ident
 
 module Name = struct
   type t = string
@@ -78,8 +76,6 @@ module Ident = struct
     if pos = 0 then make_global id;
     id
 end
-
-module Path0 = Path
 
 module Path = struct
   (* extend the original module *)
@@ -656,7 +652,7 @@ module Annot = struct
         let fixed = List.map (fun (k, id) ->
           (k, 
            (try List.assoc id value_id_table with Not_found -> 
-             Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *)),
+             Ident.unsafe_create_with_stamp (Ocaml.Ident.name id) (-2) (* magic number *)),
            id))
           kids
         in
