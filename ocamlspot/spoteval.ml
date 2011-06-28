@@ -430,11 +430,11 @@ module Eval = struct
           (* pos_filter id_value && *) name_filter id_value) str)))
       with
       | Not_found ->
-          Debug.format "Error: Not found %s(%s) @[%a@]@."
+          Debug.format "Error: Not found %s %s in @[%a@]@."
             (String.capitalize (Kind.to_string kind))
             name
             Value.Format.structure str;
-          Error (Failure (Printf.sprintf "Not found: %s__%d" name pos))
+          Error (Failure (Printf.sprintf "Not found: %s %s__%d" (String.capitalize (Kind.to_string kind)) name pos))
     end
 
   and module_expr_or_type env idopt : module_expr_or_type -> Value.z = function
@@ -521,10 +521,19 @@ module Eval = struct
       | Tstr_open _ -> str
 
       | Tstr_class clist -> 
-          List.map (fun (cinfo, _, _) -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
+          List.concat (List.map (fun (cinfo, _, _) -> 
+            [ (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) clist) @ str
 
       | Tstr_class_type id_ctdecls ->
-          List.map (fun (id, _) -> (id, (Kind.Class, z_of_id env0 id))) id_ctdecls @ str
+          List.concat (List.map (fun (id, cinfo) -> 
+            [ (id, (Kind.Class, z_of_id env0 id));
+              (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) id_ctdecls) @ str
           
       | Tstr_module (id, mexp) -> 
           let v = lazy begin
@@ -606,9 +615,17 @@ module Eval = struct
       | Tsig_type id_typedecls -> List.map (fun (id,_) -> (id, (Kind.Type, z_of_id env0 id))) id_typedecls @ str
       | Tsig_exception (id, _) ->  (id, (Kind.Exception, z_of_id env0 id)) :: str 
       | Tsig_class clist -> 
-          List.map (fun cinfo -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
+          List.concat (List.map (fun cinfo -> 
+            [ (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) clist) @ str
       | Tsig_class_type clist ->
-          List.map (fun cinfo -> (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class))) clist @ str
+          List.concat (List.map (fun cinfo -> 
+            [ (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) clist) @ str
       | Tsig_module (id, mty) -> 
           let v = lazy begin
             try

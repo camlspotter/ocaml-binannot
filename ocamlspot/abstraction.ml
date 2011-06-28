@@ -44,8 +44,8 @@ let rec format ppf = function
   | Exception id -> fprintf ppf "exception %s" (Ident.name id)
   | Module (id, module_) -> fprintf ppf "@[<2>module %s = %a@]" (Ident.name id) format_module_ module_
   | Module_type (id, module_) -> fprintf ppf "@[<2>module type %s =@ %a]" (Ident.name id) format_module_ module_
-  | Class ids -> fprintf ppf "class [%a]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
-  | Class_type ids -> fprintf ppf "class type [%a]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
+  | Class ids -> fprintf ppf "class [@[%a@]]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
+  | Class_type ids -> fprintf ppf "class type [@[%a@]]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
   | Include (module_, ids_opt) -> 
       fprintf ppf "@[<2>include {@ @[<v>%a@] }%a@]" 
         format_module_ module_ 

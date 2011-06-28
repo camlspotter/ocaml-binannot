@@ -820,8 +820,8 @@ module Annot = struct
 	    record_module_expr_def mexpr.mod_loc id mexpr) list
       | Tstr_modtype (id, mtype) -> record_module_type_def mtype.mty_loc id mtype
       | Tstr_open path -> record loc (Use (Kind.Module, path))
-      | Tstr_class _list -> () (* CR jfuruse *)
-      | Tstr_class_type _list -> () (* CR jfuruse *)
+      | Tstr_class _clinfoss -> ()
+      | Tstr_class_type _id_clinfoss -> ()
       | Tstr_include (mexpr, exported_ids) -> record_include mexpr.mod_loc mexpr exported_ids
 
     let enter_core_type ct =
@@ -864,9 +864,9 @@ module Annot = struct
     let enter_class_infos cl_info = 
       (* CR jfuruse: kind? *)
       record cl_info.ci_loc (Def (Kind.Class, cl_info.ci_id_class, None));
-      record cl_info.ci_loc (Def (Kind.Class_type, cl_info.ci_id_class_type, None)); (* CR jfuruse: ? *)
-      record cl_info.ci_loc (Def (Kind.Type , cl_info.ci_id_typesharp, None)); (* CR jfuruse: ? *)
-      record cl_info.ci_loc (Def (Kind.Type, cl_info.ci_id_object, None))
+      record cl_info.ci_loc (Def (Kind.Class_type, cl_info.ci_id_class_type, None));
+      record cl_info.ci_loc (Def (Kind.Type, cl_info.ci_id_object, None));
+      record cl_info.ci_loc (Def (Kind.Type , cl_info.ci_id_typesharp, None))
 
     let add_var_aliases loc (var_rename : (Ident.t * expression) list) = 
       List.iter (fun (id, exp) ->
@@ -899,6 +899,12 @@ module Annot = struct
           add_var_aliases cf.cf_loc var_rename
       | Tcf_init _ -> ()
 
+    let enter_class_type ct =
+      match ct.cltyp_desc with
+      | Tcty_signature _csg -> () (* CR jfuruse: ? *)
+      | Tcty_constr (path, _list) -> record ct.cltyp_loc (Use (Kind.Class_type, path))
+      | Tcty_fun (_label, _ct, _cl) -> ()
+
   (*
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
@@ -912,7 +918,6 @@ module Annot = struct
     val enter_class_signature : class_signature -> unit
     val enter_class_type_declaration :
     class_type_declaration -> unit
-    val enter_class_type : class_type -> unit
     val enter_class_type_field : class_type_field -> unit
     val enter_core_field_type : core_field_type -> unit
     val enter_class_structure : class_structure -> unit
