@@ -46,20 +46,24 @@ module Dump = struct
   let tree file = Tree.dump !!(file.File.tree)
   ;;
 
-  let top _file = 
-(*
-    Format.eprintf "@[<2>top =@ @[%a@]@]@." 
-      Abstraction.format_structure file.File.top;
-    let str = 
-      Eval.structure (File.empty_env file) file.File.top
-    in
-    if C.eager_dump then begin
-      let module Enforcer = Value.Enforcer(struct end) in
-      Enforcer.structure str;
-    end;
-    Format.eprintf "==>@.@[%a@]@." Value.Format.structure str
-*)
-    Format.eprintf "XXX@.";
+  let top file = 
+    match file.File.top with
+    | None -> Format.eprintf "NoTOP"
+    | Some (File.Saved_type saved_type) -> 
+        let abst = 
+          match saved_type with
+          | Typedtree.Saved_implementation str | Typedtree.Saved_structure str -> Abstraction.structure str
+          | Typedtree.Saved_signature sg -> Abstraction.signature sg
+          | Typedtree.Saved_structure_item _
+          | Typedtree.Saved_signature_item _
+          | Typedtree.Saved_expression _
+          | Typedtree.Saved_module_type _
+          | Typedtree.Saved_pattern _
+          | Typedtree.Saved_class_expr _ -> assert false
+        in
+        Format.eprintf "@[<2>{ @[%a@] }@]@." (Format.list "; " Abstraction.format) abst
+    | Some (File.Packed paths) -> 
+        Format.eprintf "Packed [%a]@." (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) paths
   ;;
 
   let flat file =

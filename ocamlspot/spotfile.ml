@@ -57,6 +57,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       (fst file.version) (snd file.version)
 *)
       (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
+      (* CR jfuruse: OCamlspot.Dump.top *)
       (fun ppf -> function
         | None -> Format.fprintf ppf "NoTOP"
         | Some (Saved_type _) -> Format.fprintf ppf "saved_type..."
@@ -358,9 +359,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       | _ ->
           (* CR jfuruse: loading twice... *)
           Debug.format "Finding %a@." PIdent.format pid;
-          let file = 
-            Load.load ~load_paths:[] (cmt_of_file pid.PIdent.path) 
-          in
+          let file = Load.load ~load_paths:[] (cmt_of_file pid.PIdent.path) in
           match pid.PIdent.ident with
           | None -> File_itself (* the whole file *)
           | Some id -> 
@@ -395,6 +394,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       match file.top with (* The only use of .top *)
       | Some (Saved_type (Typedtree.Saved_implementation str)) -> 
           Eval.structure (empty_env file) str
+
+      | Some (Saved_type (Typedtree.Saved_signature sg)) -> 
+          Eval.signature (empty_env file) sg
 
       | Some (Packed paths) -> 
           let id_strs = 
