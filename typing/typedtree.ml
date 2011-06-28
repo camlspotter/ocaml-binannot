@@ -586,7 +586,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
                 Iter.leave_class_infos ci;
             ) list
         | Tstr_class_type list ->
-            List.iter (fun (id, ct) ->
+            List.iter (fun (id, ct) -> (* CR jfuruse: id is never visited *)
                 Iter.enter_class_infos ct;
                 iter_class_type ct.ci_expr;
                 Iter.leave_class_infos ct;
@@ -794,9 +794,17 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tsig_open path -> ()
         | Tsig_include mty -> iter_module_type mty
         | Tsig_class list ->
-            List.iter iter_class_description list
+            List.iter (fun ci ->
+              Iter.enter_class_infos ci;
+              iter_class_type ci.ci_expr;
+              Iter.leave_class_infos ci
+            ) list
         | Tsig_class_type list ->
-            List.iter iter_class_type_declaration list
+            List.iter (fun ct ->
+                Iter.enter_class_infos ct;
+                iter_class_type ct.ci_expr;
+                Iter.leave_class_infos ct;
+            ) list
       end;
       Iter.leave_signature_item item;
     
@@ -810,6 +818,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
       Iter.leave_modtype_declaration mdecl;
     
     
+(* They are replaced by enter_class_infos + iter_class_type
     and iter_class_description cd =
       Iter.enter_class_description cd;
       iter_class_type cd.ci_expr;
@@ -819,6 +828,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
       Iter.enter_class_type_declaration cd;
       iter_class_type cd.ci_expr;
         Iter.leave_class_type_declaration cd;
+*)
     
     and iter_module_type mty =
       Iter.enter_module_type mty;
