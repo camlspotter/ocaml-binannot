@@ -90,9 +90,10 @@ let kident_of_include exported_value_ids included_mexp =
       fixed
         
 (* CR jfuruse: DUP *)
-let kident_of_mty mty = 
+let kident_of_mty env mty = 
   let open Typedtree in
   let open Types in
+  let mty = Mtype.scrape env mty in
   match mty with
   | Mty_functor _ -> assert false (* Including a functor?! *)
   | Mty_ident _ -> assert false (* Including an abstract module?! *)
@@ -281,14 +282,14 @@ end = struct
       | Ident id -> Format.fprintf ppf "Ident(%a)" PIdent.format id
       | Parameter id -> Format.fprintf ppf "Parameter(%a)" PIdent.format id
       | Structure (pid, str, None) -> 
-            Format.fprintf ppf "@[<v2>Module(%a)@ %a None@]"
+            Format.fprintf ppf "@[<v2>Structure(%a)@ %a None@]"
               PIdent.format pid
             structure str
       | Structure (pid, str, Some str') -> 
-            Format.fprintf ppf "@[<v2>Module(%a)@ %a (Some %a)@]"
+            Format.fprintf ppf "@[<v2>Structure(%a)@ %a (Some %a)@]"
               PIdent.format pid
-            structure str
-            structure str'
+              structure str
+              structure str'
       | Closure (pid, _, id, _mty, module_expr_or_type) ->
             Format.fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
               PIdent.format pid
@@ -644,7 +645,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tsig_include mty -> 
-          let kids = kident_of_mty mty.mty_type in 
+          let kids = kident_of_mty mty.mty_env mty.mty_type in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -708,6 +709,17 @@ module Eval = struct
               | _ -> assert false
             in
             !!(find_ident str (k, Ident0.name id', Ident0.binding_time id'))
+          end
+          in
+          (id, (k, z)) :: st
+      | Def (k, id, Some (Def_included_sig mty)) ->
+          let z = lazy begin
+            let str = 
+              match !!(module_type env None mty) with
+              | Structure (_pid, str, _) -> str
+              | _ -> assert false
+            in
+            !!(find_ident str (k, Ident0.name id, Ident0.binding_time id))
           end
           in
           (id, (k, z)) :: st

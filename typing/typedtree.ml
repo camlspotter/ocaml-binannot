@@ -187,7 +187,8 @@ and structure_item_desc =
 and module_type =
   { mty_desc: module_type_desc;
     mty_type : Types.module_type;
-    mty_loc: Location.t }
+    mty_loc: Location.t;
+    mty_env: Env.t }
 
 and module_type_desc =
     Tmty_ident of Path.t

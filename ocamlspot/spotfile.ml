@@ -377,7 +377,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       (* we need evaluate the path *)
       Debug.format "eval_and_find %s@." (Path.name (snd kpath));
       let v = !!(Eval.find_path env kpath) in
-      Debug.format "Value=%a@." Value.Format.t v;
+      Debug.format "eval_and_find: Value=%a@." Value.Format.t v;
       match v with
       | Value.Ident id -> id, find_loc id
       | Value.Parameter id -> id, find_loc id
@@ -404,7 +404,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
               let file = Load.load ~load_paths:file.load_paths (cmt_of_file path) in
               let path, str = structure_of_file file in 
               let id = Ident0.create_persistent (String.capitalize (Filename.chop_extension (Filename.basename path))) in
-              id, { PIdent.path = path; ident = Some id }, str
+              id, { PIdent.path = path; ident = None (* Top ! *) }, str
             ) paths 
           in
           List.map (fun (id, pident, str) -> 

@@ -556,6 +556,7 @@ module Annot = struct
     | Def_module_type of Typedtree.module_type
     | Def_alias of Path.t
     | Def_included of Typedtree.module_expr * Ident.t
+    | Def_included_sig of Typedtree.module_type
 
   type t =
     | Type of Types.type_expr (* sub-expression's type *)
@@ -627,12 +628,11 @@ module Annot = struct
 
   let record_module_expr_def loc id modl = record loc (Def (Kind.Module, id, Some (Def_module_expr modl)))
   let record_module_type_def loc id mty = record loc (Def (Kind.Module_type, id, Some (Def_module_type mty)))
-  let record_include_sig _loc _mty = () (* TODO *)
 
   (* CR jfuruse: DUP: Spoteval.kident_of_include *)
-  let include_coercion exported_value_ids included_mexp : (Kind.t * Ident.t (*out*) * Ident.t (*in*)) list = 
+  let include_coercion exported_value_ids env mty : (Kind.t * Ident.t (*out*) * Ident.t (*in*)) list = 
+    let mty = Mtype.scrape env mty in
     let open Types in
-    let mty = Mtype.scrape included_mexp.mod_env included_mexp.mod_type in
     match mty with
     | Mty_functor _ -> assert false (* Including a functor?! *)
     | Mty_ident _ -> assert false (* Including an abstract module?! *)
@@ -675,9 +675,15 @@ module Annot = struct
 
   let record_include loc modl exported_ids =
     (* include defines new identifiers, and they must be registered into the flat db *)
-    let kidents = include_coercion exported_ids modl in
+    let kidents = include_coercion exported_ids modl.mod_env modl.mod_type in
     List.iter (fun (k, id_out, id_in) ->
       record loc (Def (k, id_out, Some (Def_included (modl, id_in))))) kidents
+
+  let record_include_sig loc mty = 
+    (* include defines new identifiers, and they must be registered into the flat db *)
+    let kidents = include_coercion [] mty.mty_env mty.mty_type in
+    List.iter (fun (k, id_out, _id_in) ->
+      record loc (Def (k, id_out, Some (Def_included_sig mty)))) kidents
 
   module IteratorArgument = struct
     include DefaultIteratorArgument
@@ -949,6 +955,7 @@ end
     | Def_module_type _ -> Format.fprintf ppf "module_type"
     | Def_alias p -> Format.fprintf ppf "alias %s" (Path.name p)
     | Def_included (_mdl, id) -> Format.fprintf ppf "included _ %s" (Ident.name id)
+    | Def_included_sig _mty -> Format.fprintf ppf "included _"
 
   let format ppf = function
     | Type typ -> 

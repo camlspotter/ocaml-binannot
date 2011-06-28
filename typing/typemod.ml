@@ -358,11 +358,12 @@ let transl_modtype_longident loc env lid =
   let (path, info) = Typetexp.find_modtype env loc lid in
   path
 
-let mkmty desc typ loc =
+let mkmty env desc typ loc =
   let mty = {
     mty_desc = desc;
     mty_type = typ;
     mty_loc = loc;
+    mty_env = env;
     } in
   Typedtree.add_saved_type (Saved_module_type mty);
   mty
@@ -379,15 +380,15 @@ let rec transl_modtype env smty =
   match smty.pmty_desc with
     Pmty_ident lid ->
       let path = transl_modtype_longident loc env lid in
-      mkmty (Tmty_ident path) (Mty_ident path) loc
+      mkmty env (Tmty_ident path) (Mty_ident path) loc
   | Pmty_signature ssg ->
       let sg = transl_signature env ssg in
-      mkmty (Tmty_signature sg) (Mty_signature sg.sig_type) loc
+      mkmty env (Tmty_signature sg) (Mty_signature sg.sig_type) loc
   | Pmty_functor(param, sarg, sres) ->
       let arg = transl_modtype env sarg in
       let (id, newenv) = Env.enter_module param arg.mty_type env in
       let res = transl_modtype newenv sres in
-      mkmty (Tmty_functor (id, arg, res))
+      mkmty env (Tmty_functor (id, arg, res))
       (Mty_functor(id, arg.mty_type, res.mty_type)) loc
   | Pmty_with(sbody, constraints) ->
       let body = transl_modtype env sbody in
@@ -400,11 +401,11 @@ let rec transl_modtype env smty =
             (tcstr :: tcstrs, sg)
         )
         ([],init_sg) constraints in
-      mkmty (Tmty_with ( body, tcstrs))
+      mkmty env (Tmty_with ( body, tcstrs))
       (Mtype.freshen (Mty_signature final_sg)) loc
   | Pmty_typeof smod ->
       let tmod = !type_module_type_of_fwd env smod in
-      mkmty (Tmty_typeof tmod) tmod.mod_type loc
+      mkmty env (Tmty_typeof tmod) tmod.mod_type loc
 
 
 and transl_signature env sg =

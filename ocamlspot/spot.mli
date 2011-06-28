@@ -155,6 +155,7 @@ module Annot : sig
     | Def_module_type of Typedtree.module_type
     | Def_alias of Path.t
     | Def_included of Typedtree.module_expr * Ident.t
+    | Def_included_sig of Typedtree.module_type
 
   type t =
     | Type of Types.type_expr (* sub-expression's type *)

@@ -43,11 +43,11 @@ let rec format ppf = function
   | Type id -> fprintf ppf "type %s" (Ident.name id)
   | Exception id -> fprintf ppf "exception %s" (Ident.name id)
   | Module (id, module_) -> fprintf ppf "@[<2>module %s = %a@]" (Ident.name id) format_module_ module_
-  | Module_type (id, module_) -> fprintf ppf "@[<2>module type %s = {@ %a }@]" (Ident.name id) format_module_ module_
+  | Module_type (id, module_) -> fprintf ppf "@[<2>module type %s =@ %a]" (Ident.name id) format_module_ module_
   | Class ids -> fprintf ppf "class [%a]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
   | Class_type ids -> fprintf ppf "class type [%a]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
   | Include (module_, ids_opt) -> 
-      fprintf ppf "@[<2>include {@ %a }%a@]" 
+      fprintf ppf "@[<2>include {@ @[<v>%a@] }%a@]" 
         format_module_ module_ 
         (fun ppf -> function
           | None -> ()
@@ -56,7 +56,7 @@ let rec format ppf = function
         
 and format_module_ ppf = function
   | Path p -> fprintf ppf "%s" (Path.name p)
-  | Structure ts -> fprintf ppf "{ @[%a@] }" (list "; " format) ts
+  | Structure ts -> fprintf ppf "{ @[<v>%a@] }" (list "; " format) ts
   | Functor (id, module_) -> fprintf ppf "\\%s -> %a" (Ident.name id) format_module_ module_
   | Apply (module_1, module_2) -> fprintf ppf "app(%a, %a)" format_module_ module_1 format_module_ module_2
   | Constraint (module_1, module_2) -> fprintf ppf "constraint(%a, %a)" format_module_ module_1 format_module_ module_2
