@@ -11,6 +11,9 @@
 (*                                                                     *)
 (***********************************************************************)
 
+let fprintf = Format.fprintf
+let eprintf = Format.eprintf
+
 module List = struct
   include List
 
@@ -42,7 +45,7 @@ module Debug = struct
 *)
 
   let format fmt = 
-    if !on then Format.eprintf fmt
+    if !on then eprintf fmt
     else Format.ifprintf Format.err_formatter fmt
 end
 
@@ -90,6 +93,7 @@ include Filename.Open
 
 module Format = struct
   include Format
+  type t = formatter
   let rec list sep f ppf = function
     | [] -> ()
     | [x] -> f ppf x
@@ -100,12 +104,12 @@ module Format = struct
 	  (list sep f) xs
 
   let option f ppf = function
-    | None -> Format.fprintf ppf "None"
-    | Some v -> Format.fprintf ppf "Some(%a)" f v 
+    | None -> fprintf ppf "None"
+    | Some v -> fprintf ppf "Some(%a)" f v 
 
   let lazy_ p ppf v =
     if Lazy.is_val v then p ppf (Lazy.Open.(!!) v)
-    else Format.fprintf ppf "lazy"
+    else fprintf ppf "lazy"
 end
 
 module Option = struct
@@ -243,3 +247,8 @@ module Hashtbl = struct
   include Hashtbl
   let to_list tbl = Hashtbl.fold (fun k v st -> (k,v)::st) tbl []
 end
+
+let protect name f v =
+  try f v with e ->
+    eprintf "Error: %s: %s@." name (Printexc.to_string e)
+

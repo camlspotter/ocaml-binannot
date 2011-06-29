@@ -15,3 +15,4 @@
 
 module Ident = Ident
 module Path = Path
+module Format = Utils.Format

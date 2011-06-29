@@ -47,14 +47,16 @@ include module type of Filename.Open
 
 module Format : sig
   include module type of Format with type formatter = Format.formatter
-  val list :
-    string -> (formatter -> 'a -> unit) -> formatter -> 'a list -> unit
-  val option :
-    (formatter -> 'a -> unit) ->
-    formatter -> 'a option -> unit
-  val lazy_ :
-    (formatter -> 'a -> unit) ->
-    formatter -> 'a Lazy.t -> unit
+
+  type t = Format.formatter 
+  (** The name ``formatter'' is too long *)
+
+  (** various higher order formatters *)
+
+  val list : string -> (t -> 'a -> unit) -> t -> 'a list -> unit
+  val option : (t -> 'a -> unit) -> t -> 'a option -> unit
+  val lazy_ : (t -> 'a -> unit) -> t -> 'a Lazy.t -> unit
+
 end
 
 module Option : sig
@@ -86,3 +88,10 @@ module Hashtbl : sig
   include module type of Hashtbl with type ('a, 'b) t = ('a, 'b) Hashtbl.t
   val to_list : ('a, 'b) Hashtbl.t -> ('a * 'b) list
 end
+
+val protect : string -> ('a -> unit) -> 'a -> unit
+(** Exception is reported to stderr, with the message *)
+
+(** export of Format.fprintf and Format.eprintf. *)
+val fprintf : Format.t -> ('a, Format.t, unit) format -> 'a;;
+val eprintf : ('a, Format.t, unit) format -> 'a;;

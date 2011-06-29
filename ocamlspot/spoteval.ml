@@ -11,16 +11,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Format
 open Utils
-
-(* To avoid name collisions *)
-module OCaml = struct
-  module Format = Format
-end
-
-(* Keep the original modules *)
-module Ident0 = Ident
 
 open Spot
 
@@ -31,7 +22,7 @@ module PIdent = struct
   }
 
   let format ppf id =
-    Format.fprintf ppf "%s%s" 
+    fprintf ppf "%s%s" 
       (if id.path = "" then ""
         else 
           (let len = String.length id.path in
@@ -42,74 +33,6 @@ module PIdent = struct
         | Some id -> Ident.name id
         | None -> "TOP")
 end
-
-(* CR jfuruse: this is called many times (new_include2.ml *)    
-let kident_of_include exported_value_ids included_mexp = 
-  let open Typedtree in
-  let open Types in
-  let mty = Mtype.scrape included_mexp.mod_env included_mexp.mod_type in
-  match mty with
-  | Mty_functor _ -> assert false (* Including a functor?! *)
-  | Mty_ident _ -> assert false (* Including an abstract module?! *)
-  | Mty_signature sg ->
-      let internal_value_ids = Typemod.bound_value_identifiers sg in
-      let value_id_table = List.combine internal_value_ids exported_value_ids in
-      let kident_of_sigitem = function
-        | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
-        | Sig_value (id, _) -> Kind.Special_value, id
-        | Sig_exception (id, _) -> Kind.Exception, id
-        | Sig_module (id, _, _) ->  Kind.Module, id
-        | Sig_class (id, _, _) -> Kind.Class, id
-
-        | Sig_type (id, _, _) -> Kind.Type, id
-        | Sig_modtype (id, _) -> Kind.Module_type, id
-        | Sig_class_type (id, _, _) -> Kind.Class_type, id
-      in
-      let kids = List.map kident_of_sigitem sg in
-      (* Fixing internal ids to exported ids.
-         Non value ids are replaced by id with -2 *)
-      let fixed = List.map (fun (k, id) ->
-        (k, 
-         try List.assoc id value_id_table with Not_found -> 
-           Ident.unsafe_create_with_stamp (Ident0.name id) (-2) (* magic number *))) 
-        kids
-      in
-
-(*
-      prerr_endline "fixing kids";
-      Format.eprintf "exported: @[%a@]@."
-        (Format.list ", " (fun ppf id -> Format.fprintf ppf "%s" (Ident.name id))) exported_value_ids;
-      Format.eprintf "sig: @[%a@]@."
-        (Format.list ", " (fun ppf (k,id) -> 
-          Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) kids;
-      Format.eprintf "fixed: @[%a@]@."
-        (Format.list ", " (fun ppf (k,id) -> 
-          Format.fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
-*)
-
-      fixed
-        
-(* CR jfuruse: DUP *)
-let kident_of_mty env mty = 
-  let open Typedtree in
-  let open Types in
-  let mty = Mtype.scrape env mty in
-  match mty with
-  | Mty_functor _ -> assert false (* Including a functor?! *)
-  | Mty_ident _ -> assert false (* Including an abstract module?! *)
-  | Mty_signature sg ->
-      let kident_of_sigitem = function
-        | Sig_value (id, {val_kind = Val_reg; _}) -> Kind.Value, id
-        | Sig_value (id, _) -> Kind.Special_value, id
-        | Sig_exception (id, _) -> Kind.Exception, id
-        | Sig_module (id, _, _) ->  Kind.Module, id
-        | Sig_class (id, _, _) -> Kind.Class, id
-
-        | Sig_type (id, _, _) -> Kind.Type, id
-        | Sig_modtype (id, _) -> Kind.Module_type, id
-        | Sig_class_type (id, _, _) -> Kind.Class_type, id
-      in
-      List.map kident_of_sigitem  sg
 
 module Value : sig
 
@@ -166,11 +89,11 @@ module Value : sig
 
   module Format : sig
     (* include module type of Format 3.12 *)
-    val t : formatter -> t -> unit
-    val env : formatter -> env -> unit
-    val binding : formatter -> binding -> unit
-    val structure : formatter -> structure -> unit
-    val z : formatter -> z -> unit
+    val t : Ocaml.Format.t -> t -> unit
+    val env : Ocaml.Format.t -> env -> unit
+    val binding : Ocaml.Format.t -> binding -> unit
+    val structure : Ocaml.Format.t -> structure -> unit
+    val z : Ocaml.Format.t -> z -> unit
   end
 
 end = struct
@@ -213,15 +136,15 @@ end = struct
 
     let find t ?kind id = 
       match kind with
-      | Some (Kind.Special_value | Kind.Type | Kind.Module_type | Kind.Class_type as k) ->
+      | Some (Kind.Primitive | Kind.Type | Kind.Module_type | Kind.Class_type as k) ->
           (* also checks id_X (-2) *)
           with_check 
             (fun t -> 
               snd (List.find (fun (id', (k',_)) ->
                 k = k' &&
                   (id = id' 
-                  || (Ident0.name id = Ident0.name id' 
-                     && Ident0.binding_time id' = -2 (* CR jfuruse: magic number *))))
+                  || (Ocaml.Ident.name id = Ocaml.Ident.name id' 
+                     && Ocaml.Ident.binding_time id' = -2 (* CR jfuruse: magic number *))))
                      t))
             t
       | _ -> with_check (List.assoc id) t
@@ -276,45 +199,45 @@ end = struct
 
   module Format = struct
 
-    include Format
+    open Format
 
     let rec t ppf = function
-      | Ident id -> Format.fprintf ppf "Ident(%a)" PIdent.format id
-      | Parameter id -> Format.fprintf ppf "Parameter(%a)" PIdent.format id
+      | Ident id -> fprintf ppf "Ident(%a)" PIdent.format id
+      | Parameter id -> fprintf ppf "Parameter(%a)" PIdent.format id
       | Structure (pid, str, None) -> 
-            Format.fprintf ppf "@[<v2>Structure(%a)@ %a None@]"
+            fprintf ppf "@[<v2>Structure(%a)@ %a None@]"
               PIdent.format pid
             structure str
       | Structure (pid, str, Some str') -> 
-            Format.fprintf ppf "@[<v2>Structure(%a)@ %a (Some %a)@]"
+            fprintf ppf "@[<v2>Structure(%a)@ %a (Some %a)@]"
               PIdent.format pid
               structure str
               structure str'
       | Closure (pid, _, id, _mty, module_expr_or_type) ->
-            Format.fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
+            fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
               PIdent.format pid
               (Ident.name id)
               (fun ppf -> match module_expr_or_type with
-              | Module_expr _mexp -> Format.fprintf ppf "MEXP" (* CR jfuruse *)
-              | Module_type _mty -> Format.fprintf ppf "MTY" (* CR jfuruse *))
-      | Error (Failure s) -> Format.fprintf ppf "ERROR(%s)" s
-      | Error exn -> Format.fprintf ppf "ERROR(%s)" (Printexc.to_string exn)
+              | Module_expr _mexp -> fprintf ppf "MEXP" (* CR jfuruse *)
+              | Module_type _mty -> fprintf ppf "MTY" (* CR jfuruse *))
+      | Error (Failure s) -> fprintf ppf "ERROR(%s)" s
+      | Error exn -> fprintf ppf "ERROR(%s)" (Printexc.to_string exn)
             
     and env ppf env = 
-      Format.fprintf ppf "{ @[path=%s;@,@[<2>load_paths=@,[@[%a@]];@]@,@[<2>structure=@,@[%a@]@]@] }"
+      fprintf ppf "{ @[path=%s;@,@[<2>load_paths=@,[@[%a@]];@]@,@[<2>structure=@,@[%a@]@]@] }"
         env.path
-        (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) env.load_paths
+        (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) env.load_paths
         binding env.binding
         
     and binding ppf b = 
       match !b with
-      | None -> Format.fprintf ppf "PREM"
+      | None -> fprintf ppf "PREM"
       | Some str -> structure ppf str
 
     and structure ppf =
-      Format.fprintf ppf "{ @[<v>%a@] }"
+      fprintf ppf "{ @[<v>%a@] }"
         (Format.list "; " (fun ppf (id, (kind, t)) ->
-            Format.fprintf ppf "@[<2>%s %s =@ %a@]" 
+            fprintf ppf "@[<2>%s %s =@ %a@]" 
               (String.capitalize (Kind.to_string kind))
             (Ident.name id) z t))
         
@@ -351,7 +274,7 @@ module Eval = struct
   open Typedtree
 
   open Value
-  module Format = OCaml.Format
+  module Format = Ocaml.Format
 
   let str_of_global_ident = ref (fun ~load_paths:_ _ -> assert false : load_paths: string list -> Ident.t -> string * Value.structure)
   let packed = ref (fun _ _ -> assert false : Env.t -> string -> Value.t)
@@ -384,7 +307,7 @@ module Eval = struct
               str
             with
             | e -> 
-                Format.eprintf "LOAD FAILIURE %s: %s@." (Ident.name id) (Printexc.to_string e);
+                eprintf "LOAD FAILIURE %s: %s@." (Ident.name id) (Printexc.to_string e);
                 Error e
           end
         else begin 
@@ -422,7 +345,7 @@ module Eval = struct
         end
 
   and find_ident (str : Value.structure) (kind, name, pos) : Value.z =
-    let name_filter = fun (id, (k,_)) -> k = kind && Ident0.name id = name in
+    let name_filter = fun (id, (k,_)) -> k = kind && Ocaml.Ident.name id = name in
     (* CR jfuruse: double check by pos! *)
     lazy begin
       try
@@ -510,7 +433,7 @@ module Eval = struct
           let ids = let_bound_idents pat_exps in
           List.map (fun id -> (id, (Kind.Value, z_of_id env0 id))) ids @ str
 
-      | Tstr_primitive (id, _vdesc) -> (id, (Kind.Special_value, z_of_id env0 id)) :: str
+      | Tstr_primitive (id, _vdesc) -> (id, (Kind.Primitive, z_of_id env0 id)) :: str
 
       | Tstr_type id_typedecls ->
           List.map (fun (id,_) -> (id, (Kind.Type, z_of_id env0 id))) id_typedecls @ str
@@ -573,7 +496,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tstr_include (mexp, exported_ids) -> 
-          let kids = kident_of_include exported_ids mexp in 
+          let kids = Kind.include_coercion exported_ids mexp.mod_env mexp.mod_type in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -583,20 +506,20 @@ module Eval = struct
               in
               match v_mexp with
               | Structure (_, str, _ (* CR jfuruse *) ) -> 
-                  List.map (fun (id, (k, v)) -> (k, Ident0.name id), v) str
+                  List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
               | Parameter pid -> 
-                  List.map (fun (k,id) -> (k, Ident0.name id), eager (Parameter pid)) kids
+                  List.map (fun (k,_,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
               | Ident _ -> assert false
               | Closure _ -> assert false
               | Error _ -> [] (* error *)
             end
           in
           let str' =
-            List.map (fun (k, id) ->
+            List.map (fun (k, _, id) ->
               let v = 
                 lazy begin
                   try
-                    !!(List.assoc (k, Ident0.name id) !!kname_ztbl)
+                    !!(List.assoc (k, Ocaml.Ident.name id) !!kname_ztbl)
                   with
                   | Not_found -> Error Not_found
                 end
@@ -610,7 +533,7 @@ module Eval = struct
     List.fold_left (fun str sitem ->
       match sitem.sig_desc with
       | Tsig_open _ -> str
-      | Tsig_value (id, { val_val = { Types.val_kind = Types.Val_prim _; _ }; _ }) -> (id, (Kind.Special_value, z_of_id env0 id)) :: str
+      | Tsig_value (id, { val_val = { Types.val_kind = Types.Val_prim _; _ }; _ }) -> (id, (Kind.Primitive, z_of_id env0 id)) :: str
       | Tsig_value (id, _) -> (id, (Kind.Value, z_of_id env0 id)) :: str
       | Tsig_type id_typedecls -> List.map (fun (id,_) -> (id, (Kind.Type, z_of_id env0 id))) id_typedecls @ str
       | Tsig_exception (id, _) ->  (id, (Kind.Exception, z_of_id env0 id)) :: str 
@@ -662,7 +585,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tsig_include mty -> 
-          let kids = kident_of_mty mty.mty_env mty.mty_type in 
+          let kids = Kind.kidents_of_mty mty.mty_env mty.mty_type in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -672,9 +595,9 @@ module Eval = struct
               in
               match v_mexp with
               | Structure (_, str, _ (* CR jfuruse *) ) -> 
-                  List.map (fun (id, (k, v)) -> (k, Ident0.name id), v) str
+                  List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
               | Parameter pid -> 
-                  List.map (fun (k,id) -> (k, Ident0.name id), eager (Parameter pid)) kids
+                  List.map (fun (k,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
               | Ident _ -> assert false
               | Closure _ -> assert false
               | Error _ -> [] (* error *)
@@ -685,7 +608,7 @@ module Eval = struct
               let v = 
                 lazy begin
                   try
-                    !!(List.assoc (k, Ident0.name id) !!kname_ztbl)
+                    !!(List.assoc (k, Ocaml.Ident.name id) !!kname_ztbl)
                   with
                   | Not_found -> Error Not_found
                 end
@@ -712,7 +635,7 @@ module Eval = struct
     Hashtbl.fold (fun id { Regioned.region = _reg; value = annot } st -> 
       let open Annot in
       match annot with
-      | Type _ | Mod_type _ | Non_expansive _ | Use _ -> st
+      | Type _ | Mod_type _ (* | Non_expansive _ *) | Use _ -> st
       | Functor_parameter id -> (id, (Kind.Module, eager (Parameter { PIdent.path = env.Env.path; ident = Some id }))) :: st
       | Def (k, _id, None) -> (id, (k, z_of_id env id)) :: st
       | Def (_, _id, Some (Def_module_expr mexp)) -> (id, (Kind.Module, module_expr env (Some id) mexp)) :: st
@@ -725,7 +648,7 @@ module Eval = struct
               | Structure (_pid, str, _) -> str
               | _ -> assert false
             in
-            !!(find_ident str (k, Ident0.name id', Ident0.binding_time id'))
+            !!(find_ident str (k, Ocaml.Ident.name id', Ocaml.Ident.binding_time id'))
           end
           in
           (id, (k, z)) :: st
@@ -736,7 +659,7 @@ module Eval = struct
               | Structure (_pid, str, _) -> str
               | _ -> assert false
             in
-            !!(find_ident str (k, Ident0.name id, Ident0.binding_time id))
+            !!(find_ident str (k, Ocaml.Ident.name id, Ocaml.Ident.binding_time id))
           end
           in
           (id, (k, z)) :: st

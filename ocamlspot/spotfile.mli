@@ -17,17 +17,11 @@ open Spoteval
 module Make( Spotconfig : Spotconfig_intf.S ) : sig
 
   type elem = 
-      Spot.File.elem =
     | Argv of string array
     | Source_path of string option
     | Cwd of string
     | Load_paths of string list
     | Saved_types of Typedtree.saved_type array
-
-(*
-  val dump : source: string option -> string -> unit
-  val dump_package : prefix: string -> source: string -> string list -> unit
-*)
 
   type top = 
     | Saved_type of Typedtree.saved_type
@@ -38,7 +32,6 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
     path : string; (* "" means no source *)
     cwd : string;
     load_paths : string list;
-    (* version : string * string; *)
     argv : string array;
     top : top option;
     rannots : Annot.t Regioned.t list;
@@ -46,8 +39,6 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
     flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;
   }
 	
-  val dump_file : file -> unit
-
   val cmt_of_file : string -> string
 
   exception Old_spot of string * string
@@ -69,6 +60,7 @@ module Make( Spotconfig : Spotconfig_intf.S ) : sig
   val eval_packed : Env.t -> string -> Value.t
 *)
 
+  val dump_file : file -> unit
   val dump_elem : elem -> unit
   val dump_elems : elem list -> unit
 end

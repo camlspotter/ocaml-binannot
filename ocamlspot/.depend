@@ -1,10 +1,10 @@
 command.cmi:
 pathreparse.cmi: ../typing/path.cmi
-spot.cmi: ../typing/types.cmi ../typing/typedtree.cmi ../typing/path.cmi \
-    ../typing/ident.cmi
+spot.cmi: utils.cmi ../typing/types.cmi ../typing/typedtree.cmi \
+    ../typing/path.cmi ../typing/ident.cmi
 spotconfig.cmi: spotconfig_intf.cmo
 spoteval.cmi: utils.cmi ../typing/typedtree.cmi spot.cmi ../typing/path.cmi \
-    ../typing/ident.cmi ../typing/annot.cmi
+    ocaml.cmo ../typing/ident.cmi ../typing/annot.cmi
 spotfile.cmi: ../typing/typedtree.cmi spoteval.cmi spotconfig_intf.cmo \
     spot.cmi ../typing/path.cmi ../typing/ident.cmi ../typing/annot.cmi
 treeset.cmi: xset.cmi
@@ -19,26 +19,24 @@ command.cmo: command.cmi
 command.cmx: command.cmi
 dotfile.cmo:
 dotfile.cmx:
-ocaml.cmo: ../typing/path.cmi ../typing/ident.cmi
-ocaml.cmx: ../typing/path.cmx ../typing/ident.cmx
+ocaml.cmo: utils.cmi ../typing/path.cmi ../typing/ident.cmi
+ocaml.cmx: utils.cmx ../typing/path.cmx ../typing/ident.cmx
 ocamlspot.cmo: xmain.cmi utils.cmi ../typing/typedtree.cmi spotfile.cmi \
-    spoteval.cmi spotconfig.cmi spot.cmi ../typing/printtyp.cmi \
+    spoteval.cmi spotconfig.cmi spot.cmi ../typing/printtyp.cmi ocaml.cmo \
     ../typing/ident.cmi ../typing/annot.cmi abstraction.cmo
 ocamlspot.cmx: xmain.cmx utils.cmx ../typing/typedtree.cmx spotfile.cmx \
-    spoteval.cmx spotconfig.cmx spot.cmx ../typing/printtyp.cmx \
+    spoteval.cmx spotconfig.cmx spot.cmx ../typing/printtyp.cmx ocaml.cmx \
     ../typing/ident.cmx ../typing/annot.cmi abstraction.cmx
-pathreparse.cmo: utils.cmi ../typing/path.cmi ../typing/ident.cmi \
-    pathreparse.cmi
-pathreparse.cmx: utils.cmx ../typing/path.cmx ../typing/ident.cmx \
-    pathreparse.cmi
+pathreparse.cmo: utils.cmi ../typing/path.cmi pathreparse.cmi
+pathreparse.cmx: utils.cmx ../typing/path.cmx pathreparse.cmi
 spot.cmo: utils.cmi ../typing/types.cmi ../typing/typemod.cmi \
     ../typing/typedtree.cmi treeset.cmi ../typing/printtyp.cmi \
-    ../typing/predef.cmi ../typing/path.cmi ../typing/mtype.cmi \
+    ../typing/predef.cmi ../typing/path.cmi ocaml.cmo ../typing/mtype.cmi \
     ../typing/ident.cmi ../typing/env.cmi ../typing/ctype.cmi \
     ../typing/btype.cmi spot.cmi
 spot.cmx: utils.cmx ../typing/types.cmx ../typing/typemod.cmx \
     ../typing/typedtree.cmx treeset.cmx ../typing/printtyp.cmx \
-    ../typing/predef.cmx ../typing/path.cmx ../typing/mtype.cmx \
+    ../typing/predef.cmx ../typing/path.cmx ocaml.cmx ../typing/mtype.cmx \
     ../typing/ident.cmx ../typing/env.cmx ../typing/ctype.cmx \
     ../typing/btype.cmx spot.cmi
 spotconfig.cmo: utils.cmi spoteval.cmi spot.cmi ../typing/path.cmi \
@@ -49,16 +47,20 @@ spotconfig_intf.cmo: spot.cmi
 spotconfig_intf.cmx: spot.cmx
 spoteval.cmo: utils.cmi ../typing/types.cmi ../typing/typemod.cmi \
     ../typing/typedtree.cmi spot.cmi ../typing/predef.cmi ../typing/path.cmi \
-    ../typing/mtype.cmi ../typing/ident.cmi ../typing/annot.cmi spoteval.cmi
+    ocaml.cmo ../typing/mtype.cmi ../typing/ident.cmi ../typing/annot.cmi \
+    spoteval.cmi
 spoteval.cmx: utils.cmx ../typing/types.cmx ../typing/typemod.cmx \
     ../typing/typedtree.cmx spot.cmx ../typing/predef.cmx ../typing/path.cmx \
-    ../typing/mtype.cmx ../typing/ident.cmx ../typing/annot.cmi spoteval.cmi
+    ocaml.cmx ../typing/mtype.cmx ../typing/ident.cmx ../typing/annot.cmi \
+    spoteval.cmi
 spotfile.cmo: utils.cmi ../typing/typedtree.cmi spoteval.cmi \
-    spotconfig_intf.cmo spot.cmi ../typing/path.cmi ../typing/ident.cmi \
-    ../typing/env.cmi dotfile.cmo ../typing/annot.cmi spotfile.cmi
+    spotconfig_intf.cmo spot.cmi ../typing/path.cmi ocaml.cmo \
+    ../typing/ident.cmi ../typing/env.cmi dotfile.cmo ../typing/annot.cmi \
+    spotfile.cmi
 spotfile.cmx: utils.cmx ../typing/typedtree.cmx spoteval.cmx \
-    spotconfig_intf.cmx spot.cmx ../typing/path.cmx ../typing/ident.cmx \
-    ../typing/env.cmx dotfile.cmx ../typing/annot.cmi spotfile.cmi
+    spotconfig_intf.cmx spot.cmx ../typing/path.cmx ocaml.cmx \
+    ../typing/ident.cmx ../typing/env.cmx dotfile.cmx ../typing/annot.cmi \
+    spotfile.cmi
 treeset.cmo: xset.cmi treeset.cmi
 treeset.cmx: xset.cmx treeset.cmi
 utils.cmo: utils.cmi

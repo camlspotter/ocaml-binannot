@@ -16,14 +16,17 @@
 open Format
 open Utils
 
-(* Keep the original modules *)
-module Ident0 = Ident
-
 open Spot
 open Spoteval
     
 module Make(Spotconfig : Spotconfig_intf.S) = struct
-  include Spot.File
+
+  type elem = 
+    | Argv of string array
+    | Source_path of string option
+    | Cwd of string
+    | Load_paths of string list
+    | Saved_types of Typedtree.saved_type array
 
   type top = 
     | Saved_type of Typedtree.saved_type
@@ -33,7 +36,6 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     path : string; (* "" means no source *)
     cwd : string;
     load_paths : string list;
-    (* version : string * string; *)
     argv : string array;
 
     top : top option;
@@ -45,24 +47,21 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   let dump_file file =
 (*
-    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
+    eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
 *)
-    Format.eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |];@ top= @[%a@] }@]@."
+    eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |];@ top= @[%a@] }@]@."
       (match file.path with 
       | "" -> "NONE"
       | s -> s)
       file.cwd
-      (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) file.load_paths
-(*
-      (fst file.version) (snd file.version)
-*)
-      (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) (Array.to_list file.argv)
+      (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) file.load_paths
+      (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) (Array.to_list file.argv)
       (* CR jfuruse: OCamlspot.Dump.top *)
       (fun ppf -> function
-        | None -> Format.fprintf ppf "NoTOP"
-        | Some (Saved_type _) -> Format.fprintf ppf "saved_type..."
+        | None -> fprintf ppf "NoTOP"
+        | Some (Saved_type _) -> fprintf ppf "saved_type..."
         | Some (Packed paths) -> 
-            Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s) ppf paths) file.top
+            Format.list "; " (fun ppf s -> fprintf ppf "%S" s) ppf paths) file.top
 
   (* xxx.{ml,cmo,cmx,cmt} => xxx.cmt
      xxx.{mli,cmi,cmti} => xxx.cmti
@@ -84,10 +83,6 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     match dirname with
     | None -> filename
     | Some d -> Filename.concat d filename
-
-(*
-  open Abstraction
-*)
 
   module Load : sig
     exception Old_spot of string (* spot *) * string (* source *)
@@ -197,7 +192,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
           match annot with
           | Annot.Def (_, id, _) -> Hashtbl.add tbl id rannot
           | Annot.Functor_parameter id -> Hashtbl.add tbl id rannot
-          | Annot.Type _ | Annot.Mod_type _ | Annot.Use _  | Annot.Non_expansive _ -> ()) rannots;
+          | Annot.Type _ | Annot.Mod_type _ | Annot.Use _  (* | Annot.Non_expansive _ *) -> ()) rannots;
         tbl
       in
 
@@ -233,7 +228,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                     if Spotconfig.strict_time_stamp then 
                       raise (Old_spot (path, source))
                     else
-                      Format.eprintf "Warning: source %s is newer than the spot@." source
+                      eprintf "Warning: source %s is newer than the spot@." source
               end;
               Hashtbl.replace cache path file;
               file
@@ -272,7 +267,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     let load ~load_paths spotname : file =
       Debug.format "@[<2>spot searching %s in@ paths [@[%a@]]@]@." 
         spotname
-        (Format.list "; " (fun ppf x -> Format.fprintf ppf "%S" x)) load_paths;
+        (Format.list "; " (fun ppf x -> fprintf ppf "%S" x)) load_paths;
       let body, ext = Filename.split_extension spotname in
       let path = find_in_path load_paths body ext in
       load_directly_with_cache path
@@ -367,7 +362,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
                 Hashtbl.find file.flat id
               with
               | Not_found ->
-                  Format.eprintf "Error: find location of id %a failed@."
+                  eprintf "Error: find location of id %a failed@."
                     PIdent.format pid;
                   raise Not_found
               end
@@ -403,7 +398,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
             List.map (fun path -> 
               let file = Load.load ~load_paths:file.load_paths (cmt_of_file path) in
               let path, str = structure_of_file file in 
-              let id = Ident0.create_persistent (String.capitalize (Filename.chop_extension (Filename.basename path))) in
+              let id = Ocaml.Ident.create_persistent (String.capitalize (Filename.chop_extension (Filename.basename path))) in
               id, { PIdent.path = path; ident = None (* Top ! *) }, str
             ) paths 
           in
@@ -416,7 +411,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 
   let str_of_global_ident ~load_paths id =
     assert (Ident.global id);
-    let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ident0.name id) in
+    let file = Load.load_module ~spit:Spotconfig.print_interface ~load_paths (Ocaml.Ident.name id) in
     structure_of_file file
 
   let _ = Eval.str_of_global_ident := str_of_global_ident
@@ -432,26 +427,18 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 *)
 
   let dump_elem = function
-    | Source_path (Some s) -> Format.eprintf "Source_path: %s@." s
-    | Source_path None -> Format.eprintf "Source_path: None@." 
-    | Cwd s -> Format.eprintf "Cwd: %s@." s 
+    | Source_path (Some s) -> eprintf "Source_path: %s@." s
+    | Source_path None -> eprintf "Source_path: None@." 
+    | Cwd s -> eprintf "Cwd: %s@." s 
     | Load_paths ds -> 
-        Format.eprintf "Load_paths: @[%a@]@."
-          (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) ds
+        eprintf "Load_paths: @[%a@]@."
+          (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) ds
     | Argv argv ->
-        Format.eprintf "Argv: @[%a@]@."
-          (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) 
+        eprintf "Argv: @[%a@]@."
+          (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) 
             (Array.to_list argv)
     | Saved_types _saved_types ->
-        Format.eprintf "Saved_types: ...@." (* CR jfuruse *)
-        
-(*
-    | Top None -> Format.eprintf "Top None@."
-    | Top (Some str) -> 
-        Format.eprintf "@[<2>Top@ %a@]@."
-          format_structure str
-    | Annots _ -> Format.eprintf "Annots [...]@."
-*)
+        eprintf "Saved_types: ...@." (* CR jfuruse *)
 
   let dump_elems elems = List.iter dump_elem elems
 end

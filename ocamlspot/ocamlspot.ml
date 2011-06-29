@@ -16,9 +16,6 @@
 open Format
 open Utils
 
-(* Keep the original modules *)
-module Ident0 = Ident
-
 open Spot
 open Spoteval
 
@@ -32,13 +29,13 @@ module Dump = struct
   ;;
 
   let rannots_full file = 
-    Format.eprintf "@[<2>rannots =@ @[<v>%a@]@]@."
+    eprintf "@[<2>rannots =@ @[<v>%a@]@]@."
       (Format.list "; " (Regioned.format Annot.format))
       file.File.rannots
   ;;
   
   let rannots_summary file = 
-    Format.eprintf "@[<2>rannots =@ @[<v>%a@]@]@."
+    eprintf "@[<2>rannots =@ @[<v>%a@]@]@."
       (Format.list "; " (Regioned.format Annot.summary))
       file.File.rannots
   ;;
@@ -48,7 +45,7 @@ module Dump = struct
 
   let top file = 
     match file.File.top with
-    | None -> Format.eprintf "NoTOP"
+    | None -> eprintf "NoTOP"
     | Some (File.Saved_type saved_type) -> 
         let abst = 
           match saved_type with
@@ -61,16 +58,16 @@ module Dump = struct
           | Typedtree.Saved_pattern _
           | Typedtree.Saved_class_expr _ -> assert false
         in
-        Format.eprintf "@[<2>{ @[%a@] }@]@." (Format.list "; " Abstraction.format) abst
+        eprintf "@[<2>{ @[%a@] }@]@." (Format.list "; " Abstraction.format) abst
     | Some (File.Packed paths) -> 
-        Format.eprintf "Packed [%a]@." (Format.list "; " (fun ppf s -> Format.fprintf ppf "%S" s)) paths
+        eprintf "Packed [%a]@." (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) paths
   ;;
 
   let flat file =
-    Format.eprintf "@[<2>flat =@ @[%a@]@]@." 
+    eprintf "@[<2>flat =@ @[%a@]@]@." 
       (Format.list "; "
          (fun ppf (id, rannot) ->
-           Format.fprintf ppf "%s : %a"
+           fprintf ppf "%s : %a"
              (Ident.name id)
              (Regioned.format Annot.format) rannot))
       (Hashtbl.to_list file.File.flat)
@@ -86,7 +83,7 @@ module Dump = struct
       let module Enforcer = Value.Enforcer(struct end) in
       Enforcer.structure str;
     end;
-    Format.eprintf "==>@.@[%a@]@." Value.Format.structure str;
+    eprintf "==>@.@[%a@]@." Value.Format.structure str;
 *)
   ;;
 
@@ -203,7 +200,7 @@ module Main = struct
           | _ :: ls -> find_module_path ls
         in
         Format.printf "In_module: %s@."
-          (String.concat "." (List.map Ident0.name (List.rev (find_module_path treepath))));
+          (String.concat "." (List.map Ocaml.Ident.name (List.rev (find_module_path treepath))));
 *)
 
         (* print "Val: val name : type" if it is a Str: val *)
@@ -221,7 +218,7 @@ module Main = struct
           match find_type annots, find_str_value annots with
           | Some typ, Some id ->
               Format.printf "Val: val %s : @[%a@]@."
-                (Ident0.name id)
+                (Ocaml.Ident.name id)
                 (Printtyp.type_scheme ~with_pos:false) typ
           | _ -> ()
         in
@@ -256,13 +253,13 @@ module Main = struct
   let query file spec =
     try query file spec with
     | Failure s ->
-        Format.eprintf "Error: %s@." s;
+        eprintf "Error: %s@." s;
         bye 1
     | File.Old_spot (_spot, source) ->
-        Format.eprintf "Error: source %s is newer than the spot@." source;
+        eprintf "Error: source %s is newer than the spot@." source;
         bye 1
     | e ->
-        Format.eprintf "uncaught exception: %s@." (Printexc.to_string e);
+        eprintf "uncaught exception: %s@." (Printexc.to_string e);
         bye 1
 
 (*
@@ -281,7 +278,7 @@ module Main = struct
 	  let file = load pathname.Unix.path in
 	  Debug.format "Searching %s@." pathname.Unix.path;
 	  let base_ident = function
-	    | Path.Pident id -> Ident0.name id
+	    | Path.Pident id -> Ocaml.Ident.name id
 	    | Path.Pdot (_, name, _) -> name
 	    | Path.Papply _ -> assert false
 	  in
@@ -313,7 +310,7 @@ module Main = struct
     in
 
     let by_pos file pos = 
-      Format.eprintf "Searching %s:%s ...@." 
+      eprintf "Searching %s:%s ...@." 
 	file.File.path 
 	(Position.to_string pos);
       match List.find_map_opt (function 
@@ -370,11 +367,7 @@ module Main = struct
     | `Query (path, spec) -> query path spec
 (*
     | `Typecheck args -> typecheck args
-*)
-(*
     | `Recheck args -> recheck args
-*)
-(*
     | `Recheck _ -> assert false
     | `Use ((path, spec), targets)-> use path spec targets
 *)

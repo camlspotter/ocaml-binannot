@@ -11,9 +11,6 @@
 (*                                                                     *)
 (***********************************************************************)
 
-module Ident0 = Ident
-module Path0 = Path
-
 open Utils
 
 open Parsetree
@@ -27,8 +24,8 @@ module Locident = struct
   type t = Locident.t
   let rec format ppf t = match t.lident_desc with
     | LLident s -> Format.pp_print_string ppf s
-    | LLdot (t, s) -> Format.fprintf ppf "%a.%s" format t s
-    | LLapply (t1, t2) -> Format.fprintf ppf "%a(%a)" format t1 format t2
+    | LLdot (t, s) -> format ppf "%a.%s" format t s
+    | LLapply (t1, t2) -> format ppf "%a(%a)" format t1 format t2
 end
 
 (* path substring *)
@@ -96,7 +93,7 @@ let get mlpath region pos path =
       in
       try search true path locid with
       | Failure s -> 
-	  Format.eprintf "Error: pathreparse: %s (path) <> %a (from source)@."
+	  eformat "Error: pathreparse: %s (path) <> %a (from source)@."
 	    (Path.name path) 
 	    Locident.format locid;
 	  failwith s

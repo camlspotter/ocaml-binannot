@@ -11,14 +11,11 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(* Annotations 
-
-   Annotations are stored in .spot with their locations
-*)
+open Utils
 
 module Name : sig
   (* Name is an identifier name with its stamp number. For example, 
-     an ident of name "string" with a stamp 3 has the name "string__3".
+     an ident of name "string" with stamp 3 has the name "string__3".
 
      With these names, OCamlSpotter distinguishes textual
      representations of idents with the same name but with different
@@ -30,10 +27,16 @@ module Name : sig
 end
 
 module Ident : sig
+  (** Modified Ident. The original Ident is available as Ocaml.Ident *)
+
   type t = Ident.t
-  val name : t -> Name.t
+
+  val name : t -> Name.t 
+  (** returns the name of an ident, with the stamp  *)
+
   val unsafe_create_with_stamp : ?flags:int -> string -> int -> t
-    (** create an ident with given flags and stamp *)
+  (** create an ident with given flags and stamp *)
+
   val parse : Name.t -> t
 
   (* from the original *)    
@@ -41,10 +44,13 @@ module Ident : sig
 end
 
 module Path : sig
+  (** Modified Path. The original Path is avaiable as Ocaml.Path *)
+
   type t = Path.t =
 	   | Pident of Ident.t
 	   | Pdot of t * string * int
 	   | Papply of t * t
+
   val same : t -> t -> bool
   val isfree : Ident.t -> t -> bool
   val binding_time : t -> int
@@ -52,67 +58,101 @@ module Path : sig
   val head : t -> Ident.t
 
   val name : t -> Name.t
+  (** return the name of a path, with stamp *)
+
   val local : t -> bool
-      (** return true if "local" *)
+  (** return true if "local" *)
+
   val parse : Name.t -> t
+
+  val format : Format.t -> t -> unit
 end
 
 module TypeFix : sig
-
+  (** Replacing the original path and idents by those with stamp names *)
+    
   val type_expr : Types.type_expr -> Types.type_expr
-    (** put pos and stamps to type_expr *)
+  (** put pos and stamps to type_expr *)
 
   val module_type : Types.module_type -> Types.module_type
 
 end
 
 module Printtyp : sig
-  open Format
+  (** Modified type printers which can print types with stamp names *)
 
   open Types
 
   val reset : unit -> unit
-  val mark_loops : Types.type_expr -> unit
+  val mark_loops : type_expr -> unit
   val reset_names : unit -> unit
-  val type_expr :
-    ?with_pos:bool -> formatter -> Types.type_expr -> unit
-  val type_sch :
-    ?with_pos:bool -> formatter -> Types.type_expr -> unit
-  val type_scheme :
-    ?with_pos:bool -> formatter -> Types.type_expr -> unit
-  val modtype :
-    ?with_pos:bool -> formatter -> Types.module_type -> unit
+  val type_expr : ?with_pos:bool -> Format.t -> type_expr -> unit
+  val type_sch : ?with_pos:bool -> Format.t -> type_expr -> unit
+  val type_scheme : ?with_pos:bool -> Format.t -> type_expr -> unit
+  val modtype : ?with_pos:bool -> Format.t -> module_type -> unit
 end
 
 module Position : sig
+  (* By historical reason, we have several syntaxes of source code positions
+
+     Bytes from the head of file: 123
+
+     Lines and columns: l10c20
+
+     Lines, columns and bytes: l10c20b123
+ 
+     Bytes only, with the mark of `b'ytes: b123
+
+     Simplified lines and columns: 10_20
+     
+     Simplified lines, columns and bytes: 10_20_123
+
+  *)
 
   type t = { line_column : (int * int) option; 
              bytes : int option; }
 
   val none : t
   val compare : t -> t -> int
-  val next : t -> t
   val of_lexing_position : Lexing.position -> t
+
+  val next : t -> t
+  (** Return the next char position *)
 
   exception Parse_failure of string
   val parse : string -> t (* may raise Parse_failure *)
 
   val to_string : t -> string
+  (** Print t in the simplified formats *)
+  
   val is_complete : t -> bool
+  (** Returns true if the position has both of line-columns and bytes *)
+
   val complete : string -> t -> t
+  (** [complete filepath t] tries to complete the position [t]
+      by actually opening and counting the chars and lines of the file [filepath]. *)
+
 end
 
 module Region : sig
-
+  (** A region is a pair of positions *)
   type t = { start : Position.t; end_ : Position.t; }
   
   val compare : t -> t -> [> `Included | `Includes | `Left | `Overwrap | `Right | `Same ]
+  (** [compare t1 t2] returns:
+      `Included: if [t1] is completely inside [t2]
+      `Includes: if [t2] is completely inside [t1]
+      `Left:     if [t1] is left of [t2] and have no intersection
+      `Overwrap: if [t1] and [t2] intersect
+      `Right:    if [t1] is right of [t2] and have no intersection
+      `Same:     if [t1] and [t2] are exactly the same   
+  *)
 
   val to_string : t -> string
   val of_parsing : Location.t -> t
   val split : t -> by:t -> (t * t) option
   val point_by_byte : int -> t  
-    (** works only if bytes are available *)
+  (** works only if bytes are available *)
   val point : Position.t -> t
   val length_in_bytes : t -> int
   val is_complete : t -> bool
@@ -122,21 +162,20 @@ end
 
 module Regioned : sig
   type 'a t = { region : Region.t; value : 'a; }
-  val compare :
-    'a t ->
-    'b t -> [> `Included | `Includes | `Left | `Overwrap | `Right | `Same ]
+  val compare : 'a t -> 'b t -> [> `Included | `Includes | `Left | `Overwrap | `Right | `Same ]
   val split : 'a t -> by:'b t -> ('a t * 'a t) option
-  val format : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
+  val format : (Format.t -> 'a -> unit) -> Format.t -> 'a t -> unit
 end
 
 module Location_bound : sig
   val upperbound : Location.t -> Location.t -> Location.t
+  (** [upperbound loc by] returns [loc] but its loc_end is replaced by [by.loc_start] *)
 end
 
 module Kind : sig
   type t = 
     | Value  (** regular value *)
-    | Special_value (** primitives and others *) 
+    | Primitive (** primitives and others *) 
     | Type 
     | Exception 
     | Module 
@@ -147,6 +186,9 @@ module Kind : sig
   val to_string : t -> string
   val from_string : string -> t
   val name : t -> string
+
+  val kidents_of_mty : Env.t -> Types.module_type -> (t * Ident.t) list
+  val include_coercion : Ident.t list -> Env.t -> Types.module_type -> (t * Ident.t * Ident.t) list
 end
 
 module Annot : sig
@@ -160,7 +202,9 @@ module Annot : sig
   type t =
     | Type of Types.type_expr (* sub-expression's type *)
     | Mod_type of Types.module_type
+(*
     | Non_expansive of bool
+*)
     | Use of Kind.t * Path.t
     | Functor_parameter of Ident.t
     | Def of Kind.t * Ident.t * def option (* definition of Ident.t *)
@@ -168,27 +212,9 @@ module Annot : sig
   val record_saved_type : Typedtree.saved_type -> unit
   val recorded : unit -> (Location.t * t) list
   val recorded_top : unit -> Typedtree.saved_type option
-(*
-  val record : Location.t -> t -> unit
-    
-  (* [record_constr_type_use loc ty] records a constructor use of type [ty]
-     at the location [loc]. [ty] must be a constructor type, otherwise,
-     an error message is printed out. 
-  *)
-  val record_constr_type_use : Location.t -> Types.type_expr -> unit
-  val record_module_expr_def : Location.t -> Ident.t -> Typedtree.module_expr -> unit
-  val record_module_expr_use : Location.t -> Typedtree.module_expr -> unit
-  val record_include :
-    Location.t -> Typedtree.module_expr -> Types.signature -> unit
-  val record_include_sig :
-    Location.t ->
-    Types.module_type -> Types.signature -> unit
-  val record_module_type_def : Location.t -> Ident.t -> Types.module_type -> unit
-  val recorded : unit -> (Location.t * t) list
-*)
 
-  val format : Format.formatter -> t -> unit
-  val summary : Format.formatter -> t -> unit
+  val format : Format.t -> t -> unit
+  val summary : Format.t -> t -> unit
   (** same as [format] but bigger structures are omitted *)    
 
   val dummy : t
@@ -213,18 +239,4 @@ module Tree : sig
     (** Region splitted Annot may be itered more than once. *)
 
   val dump : t -> unit
-end
-
-(* Spot file *)
-module File : sig
-  type elem =
-    | Argv of string array
-    | Source_path of string option
-    | Cwd of string
-    | Load_paths of string list
-    | Saved_types of Typedtree.saved_type array
-
-  (* marshalled type *)
-  type t = elem list
-
 end

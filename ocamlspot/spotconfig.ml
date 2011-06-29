@@ -23,7 +23,7 @@ let app_version = "2.0.0"
 
 let version = Printf.sprintf "%s for ocaml %s" app_version Sys.ocaml_version
     
-let print_version () = Format.eprintf "ocamlspot %s@." version
+let print_version () = eprintf "ocamlspot %s@." version
     
 let rev_anonargs = ref []
 let dump_file = ref false

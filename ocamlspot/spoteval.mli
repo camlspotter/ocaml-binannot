@@ -17,7 +17,7 @@ open Utils
 module PIdent : sig
   (** Identifier with file name path *)
   type t = { path : string; ident : Ident.t option; }
-  val format : Format.formatter -> t -> unit
+  val format : Format.t -> t -> unit
 end
 
 module Value : sig
@@ -59,12 +59,11 @@ module Value : sig
   end
 
   module Format : sig
-    open Format
-    val t : formatter -> t -> unit
-    val env : formatter -> env -> unit
-    val binding : formatter -> binding -> unit
-    val structure : formatter -> structure -> unit
-    val z : formatter -> z -> unit
+    val t : Ocaml.Format.t -> t -> unit
+    val env : Ocaml.Format.t -> env -> unit
+    val binding : Ocaml.Format.t -> binding -> unit
+    val structure : Ocaml.Format.t -> structure -> unit
+    val z : Ocaml.Format.t -> z -> unit
   end
 end
 
@@ -91,7 +90,7 @@ module Env : sig
     load_paths : string list;
     binding : Binding.t;
   }
-  val format : Format.formatter -> Value.env -> unit
+  val format : Format.t -> Value.env -> unit
   val domain : t -> Ident.t list
   val domain_with_kind : t -> (Ident.t * Kind.t) list
   val find : t -> ?kind:Kind.t -> Ident.t -> Kind.t * Value.z
