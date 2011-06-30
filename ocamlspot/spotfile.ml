@@ -349,12 +349,12 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       env
     in
     let find_loc pid =
-      match  pid.PIdent.path with
+      match  pid.PIdent.filepath with
       | "" -> Predefined
       | _ ->
           (* CR jfuruse: loading twice... *)
           Debug.format "Finding %a@." PIdent.format pid;
-          let file = Load.load ~load_paths:[] (cmt_of_file pid.PIdent.path) in
+          let file = Load.load ~load_paths:[] (cmt_of_file pid.PIdent.filepath) in
           match pid.PIdent.ident with
           | None -> File_itself (* the whole file *)
           | Some id -> 
@@ -399,7 +399,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
               let file = Load.load ~load_paths:file.load_paths (cmt_of_file path) in
               let path, str = structure_of_file file in 
               let id = Ocaml.Ident.create_persistent (String.capitalize (Filename.chop_extension (Filename.basename path))) in
-              id, { PIdent.path = path; ident = None (* Top ! *) }, str
+              id, { PIdent.filepath = path; ident = None (* Top ! *) }, str
             ) paths 
           in
           List.map (fun (id, pident, str) -> 
@@ -419,7 +419,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
 (*
   let eval_packed env file =
     let f = Load.load ~load_paths:[""] (cmt_of_file (env.Env.cwd ^/ file)) in
-    Value.Structure ({ PIdent.path = f.path; ident = None },
+    Value.Structure ({ PIdent.filepath = f.path; ident = None },
                     Eval.structure (empty_env f) f.top,
                     None (* packed has no .mli *))
 

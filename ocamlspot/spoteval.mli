@@ -16,7 +16,7 @@ open Utils
 
 module PIdent : sig
   (** Identifier with file name path *)
-  type t = { path : string; ident : Ident.t option; }
+  type t = { filepath : string; ident : Ident.t option; }
   val format : Format.t -> t -> unit
 end
 

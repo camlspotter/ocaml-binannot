@@ -131,10 +131,10 @@ module Main = struct
     | Some (pident, res) -> 
         match res with
 	| File.File_itself ->
-            Format.printf "Spot: <%s:all>@." pident.PIdent.path
+            Format.printf "Spot: <%s:all>@." pident.PIdent.filepath
 	| File.Found_at rannot ->
             Format.printf "Spot: <%s:%s>@."
-              pident.PIdent.path
+              pident.PIdent.filepath
               (Region.to_string rannot.Regioned.region)
 	| File.Predefined ->
             Format.printf "Spot: %a: predefined %s@."

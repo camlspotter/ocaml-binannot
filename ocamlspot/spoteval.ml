@@ -16,19 +16,20 @@ open Utils
 open Spot
 
 module PIdent = struct
+  (** Ident with file name *)
   type t = {
-    path : string; (* "" means predefined *)
+    filepath : string; (* "" means predefined *)
     ident : Ident.t option; (* None means the top module *)
   }
 
   let format ppf id =
     fprintf ppf "%s%s" 
-      (if id.path = "" then ""
+      (if id.filepath = "" then ""
         else 
-          (let len = String.length id.path in
+          (let len = String.length id.filepath in
           if len > 20 then
-            "..." ^ String.sub id.path (len - 20) 20 
-          else id.path) ^ ":")
+            "..." ^ String.sub id.filepath (len - 20) 20 
+          else id.filepath) ^ ":")
         (match id.ident with
         | Some id -> Ident.name id
         | None -> "TOP")
@@ -158,7 +159,7 @@ end = struct
       let add_predefined kind id = 
         items := 
           (id, 
-           (kind, eager (Ident { PIdent.path = "";
+           (kind, eager (Ident { PIdent.filepath = "";
                                  ident = Some id })))
           :: !items
       in
@@ -279,7 +280,7 @@ module Eval = struct
   let str_of_global_ident = ref (fun ~load_paths:_ _ -> assert false : load_paths: string list -> Ident.t -> string * Value.structure)
   let packed = ref (fun _ _ -> assert false : Env.t -> string -> Value.t)
 
-  let z_of_id env id = eager (Ident { PIdent.path = env.Env.path; ident = Some id })
+  let z_of_id env id = eager (Ident { PIdent.filepath = env.Env.path; ident = Some id })
 
   let rec find_path env (kind, p) : Value.z = 
     match p with
@@ -297,7 +298,7 @@ module Eval = struct
               let path, str = 
                 !str_of_global_ident ~load_paths:env.load_paths id
               in
-              let str = Structure ( { PIdent.path = path; ident = None }, 
+              let str = Structure ( { PIdent.filepath = path; ident = None }, 
                                     str,
                                     None (* CR jfuruse: todo (read .mli) *) )
               in
@@ -370,13 +371,13 @@ module Eval = struct
     | Tmod_structure str -> 
         lazy begin
           let str = structure env str in
-          Structure ({ PIdent.path= env.path; ident = idopt }, str, None)
+          Structure ({ PIdent.filepath= env.path; ident = idopt }, str, None)
         end
     | Tmod_functor (id, mty, mexp) -> 
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
-        eager (Closure ({ PIdent.path = env.path; ident = idopt }, 
+        eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
                         env, id, mty, Module_expr mexp))
     | Tmod_constraint (mexp, _mty, _, _) -> 
         (* [mty] may not be a simple signature but an ident which is
@@ -409,13 +410,13 @@ module Eval = struct
     | Tmty_signature sg -> 
         lazy begin
           let sg = signature env sg in
-          Structure ({ PIdent.path= env.path; ident = idopt }, sg, None)
+          Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None)
         end
     | Tmty_functor (id, mty1, mty2) ->
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
-        eager (Closure ({ PIdent.path = env.path; ident = idopt }, 
+        eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
                         env, id, mty1, Module_type mty2))
     | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
@@ -636,7 +637,7 @@ module Eval = struct
       let open Annot in
       match annot with
       | Type _ | Mod_type _ (* | Non_expansive _ *) | Use _ -> st
-      | Functor_parameter id -> (id, (Kind.Module, eager (Parameter { PIdent.path = env.Env.path; ident = Some id }))) :: st
+      | Functor_parameter id -> (id, (Kind.Module, eager (Parameter { PIdent.filepath = env.Env.path; ident = Some id }))) :: st
       | Def (k, _id, None) -> (id, (k, z_of_id env id)) :: st
       | Def (_, _id, Some (Def_module_expr mexp)) -> (id, (Kind.Module, module_expr env (Some id) mexp)) :: st
       | Def (_, _id, Some (Def_module_type mty)) -> (id, (Kind.Module_type, module_type env (Some id) mty)) :: st
