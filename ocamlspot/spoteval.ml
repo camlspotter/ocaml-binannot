@@ -44,7 +44,7 @@ module Value : sig
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -106,7 +106,7 @@ end = struct
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -181,7 +181,7 @@ end = struct
       | Structure (_, str, str_opt) -> 
           structure str;
           Option.iter str_opt ~f:structure
-      | Closure (_, e, _, _, _) -> env e
+      | Closure (_, e, _, _) -> env e
       | Ident _ | Error _ | Parameter _ -> ()
     and env e = binding e.binding
     and binding b =
@@ -214,7 +214,7 @@ end = struct
               PIdent.format pid
               structure str
               structure str'
-      | Closure (pid, _, id, _mty, module_expr_or_type) ->
+      | Closure (pid, _, id, module_expr_or_type) ->
             fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
               PIdent.format pid
               (Ident.name id)
@@ -373,12 +373,12 @@ module Eval = struct
           let str = structure env str in
           Structure ({ PIdent.filepath= env.path; ident = idopt }, str, None)
         end
-    | Tmod_functor (id, mty, mexp) -> 
+    | Tmod_functor (id, _mty, mexp) -> 
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, mty, Module_expr mexp))
+                        env, id, Module_expr mexp))
     | Tmod_constraint (mexp, _mty, _, _) -> 
         (* [mty] may not be a simple signature but an ident which is
            hard to get its definition at this point. 
@@ -412,12 +412,12 @@ module Eval = struct
           let sg = signature env sg in
           Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None)
         end
-    | Tmty_functor (id, mty1, mty2) ->
+    | Tmty_functor (id, _mty1, mty2) ->
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, mty1, Module_type mty2))
+                        env, id, Module_type mty2))
     | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
 
@@ -624,7 +624,7 @@ module Eval = struct
     | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
-    | Closure (_, env, id, _mty, mexp_or_mty) -> 
+    | Closure (_, env, id, mexp_or_mty) -> 
         match mexp_or_mty with
         | Module_expr mexp ->
             !!(module_expr (Env.override env (id, (Kind.Module, v2)))

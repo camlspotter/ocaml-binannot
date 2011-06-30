@@ -29,7 +29,7 @@ module Value : sig
   type t =
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option
-    | Closure of PIdent.t * env * Ident.t * Typedtree.module_type * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn
 
