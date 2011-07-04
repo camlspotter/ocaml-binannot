@@ -42,13 +42,9 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     rannots : Annot.t Regioned.t list;
     tree : Tree.t lazy_t;
     flat : (Ident.t, Annot.t Regioned.t) Hashtbl.t;
-    (* flat : Abstraction.structure; *)
   }
 
   let dump_file file =
-(*
-    eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ version= %S,%S;@ argv= [| @[%a@] |]; ... }@]@."
-*)
     eprintf "@[<2>{ path= %S;@ cwd= %S;@ load_paths= [ @[%a@] ];@ argv= [| @[%a@] |];@ top= @[%a@] }@]@."
       (match file.path with 
       | "" -> "NONE"

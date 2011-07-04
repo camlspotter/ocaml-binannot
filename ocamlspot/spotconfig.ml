@@ -117,7 +117,7 @@ module SearchSpec = struct
         Kind 
           (Kind.from_string (String.sub s (at2+1) (at-at2-1)),
            let s = String.sub s (at+1) (String.length s - at - 1) in 
-           try Path.parse s with
+           try Indexed.Path.parse s with
            | _ -> failwith ("illegal path: " ^ s))
       with
       | Invalid_argument _ | Not_found -> 

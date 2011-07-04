@@ -15,7 +15,7 @@ open Utils
 
 open Types
 open Typedtree
-open Spot
+open Indexed
 open Format
 
 type t = 
@@ -38,26 +38,26 @@ and module_ =
   | Abstract
 
 let rec format ppf = function
-  | Value id -> fprintf ppf "val %s" (Ident.name id)
-  | Primitive id -> fprintf ppf "val prim %s" (Ident.name id)
-  | Type id -> fprintf ppf "type %s" (Ident.name id)
-  | Exception id -> fprintf ppf "exception %s" (Ident.name id)
-  | Module (id, module_) -> fprintf ppf "@[<2>module %s = %a@]" (Ident.name id) format_module_ module_
-  | Module_type (id, module_) -> fprintf ppf "@[<2>module type %s =@ %a]" (Ident.name id) format_module_ module_
+  | Value id -> fprintf ppf "val %a" Ident.format id
+  | Primitive id -> fprintf ppf "val prim %a" Ident.format id
+  | Type id -> fprintf ppf "type %a" Ident.format id
+  | Exception id -> fprintf ppf "exception %a" Ident.format id
+  | Module (id, module_) -> fprintf ppf "@[<2>module %a = %a@]" Ident.format id format_module_ module_
+  | Module_type (id, module_) -> fprintf ppf "@[<2>module type %a =@ %a]" Ident.format id format_module_ module_
   | Class ids -> fprintf ppf "class [@[%a@]]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
-  | Class_type ids -> fprintf ppf "class type [@[%a@]]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
+  | Class_type ids -> fprintf ppf "class type [@[%a@]]" (list "; " Ident.format) ids
   | Include (module_, ids_opt) -> 
       fprintf ppf "@[<2>include {@ @[<v>%a@] }%a@]" 
         format_module_ module_ 
         (fun ppf -> function
           | None -> ()
           | Some ids -> 
-              fprintf ppf " [%a]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids) ids_opt
+              fprintf ppf " [%a]" (list "; " Ident.format) ids) ids_opt
         
 and format_module_ ppf = function
   | Path p -> fprintf ppf "%s" (Path.name p)
   | Structure ts -> fprintf ppf "{ @[<v>%a@] }" (list "; " format) ts
-  | Functor (id, module_) -> fprintf ppf "\\%s -> %a" (Ident.name id) format_module_ module_
+  | Functor (id, module_) -> fprintf ppf "\\%a -> %a" Ident.format id format_module_ module_
   | Apply (module_1, module_2) -> fprintf ppf "app(%a, %a)" format_module_ module_1 format_module_ module_2
   | Constraint (module_1, module_2) -> fprintf ppf "constraint(%a, %a)" format_module_ module_1 format_module_ module_2
   | Abstract -> fprintf ppf "<abst>"
@@ -133,3 +133,127 @@ and types_module_type = function
 and types_modtype_declaration = function
   | Modtype_abstract -> Abstract
   | Modtype_manifest mty -> types_module_type mty
+
+module Format = struct
+
+  let rec structure ppf str = fprintf ppf "{ @[<v>%a@] }" (Format.list "; " structure_item) str.str_items
+
+  and structure_item ppf sitem = match sitem.str_desc with
+    | Tstr_eval _ -> ()
+    | Tstr_value (_, pat_exps) -> 
+        List.iter (fun id -> fprintf ppf "val %a" Ident.format id) (let_bound_idents pat_exps)
+    | Tstr_primitive (id, _) -> fprintf ppf "prim %a" Ident.format id
+    | Tstr_type id_decls -> List.iter (fun (id, _) -> fprintf ppf "type %a" Ident.format id) id_decls
+    | Tstr_exception (id, _) 
+    | Tstr_exn_rebind (id, _) -> fprintf ppf "exception %a" Ident.format id
+    | Tstr_module (id, mexp) -> fprintf ppf "@[<2>module %a =@ @[%a@]@]" Ident.format id module_expr mexp
+    | Tstr_recmodule id_mty_mexps -> 
+        fprintf ppf "@[<2>module rec @[%a@]@]"
+          (Format.list " and " (fun ppf (id, _, mexp) -> 
+            fprintf ppf "@[<2> %a = @ @[%a@]@]" Ident.format id module_expr mexp))
+          id_mty_mexps
+    | Tstr_modtype (id, mty) -> fprintf ppf "@[<2>modtype %a = @[%a@]@]" Ident.format id module_type mty
+    | Tstr_open _ -> ()
+    | Tstr_class cinfoss -> 
+        List.iter (fun (cinfos, _, _) -> fprintf ppf "@[<2> class @[%a@]@]" class_infos cinfos) cinfoss
+    | Tstr_class_type id_cinfoss ->
+        List.iter (fun (id, cinfos) -> 
+          fprintf ppf "@[<2>class type %a = @[%a@]@]" Ident.format id class_infos cinfos) id_cinfoss
+    | Tstr_include (mexp, ids) -> 
+        fprintf ppf "@[<2>include @[%a@] : { @[%a@] }@ :: { @[%a@] }@]" 
+          module_expr mexp
+          types_module_type mexp.mod_type
+          (Format.list "; " Ident.format) ids
+
+  and class_infos : 'a. Format.t -> 'a class_infos -> unit = fun ppf cinfos -> 
+    fprintf ppf "{ class=%a; class_type=%a; type=%a; typesharp=%a }"
+      Ident.format cinfos.ci_id_class
+      Ident.format cinfos.ci_id_class_type
+      Ident.format cinfos.ci_id_object
+      Ident.format cinfos.ci_id_typesharp
+
+  and signature ppf sg = fprintf ppf "{ @[<v>%a@] }" (Format.list "; " signature_item) sg.sig_items
+
+  and signature_item ppf sitem = match sitem.sig_desc with
+    | Tsig_value (id, { val_val = { val_kind = Val_prim _; _ }; _} ) -> fprintf ppf "prim %a" Ident.format id
+    | Tsig_value (id, _) -> fprintf ppf "val %a" Ident.format id
+    | Tsig_type id_decls -> 
+        List.iter (fun (id, _) -> fprintf ppf "type %a" Ident.format id) id_decls
+    | Tsig_exception (id, _) -> fprintf ppf "exception %a" Ident.format id
+    | Tsig_module (id, mty) -> fprintf ppf "@[<2>module %a =@ @[%a@]@]" Ident.format id module_type mty
+    | Tsig_recmodule id_mtys -> 
+        fprintf ppf "@[<2>module rec @[%a@]@]"
+          (Format.list " and " (fun ppf (id, mty) -> 
+            fprintf ppf "@[<2> %a = @ @[%a@]@]" Ident.format id module_type mty))
+          id_mtys
+    | Tsig_modtype (id, mtyd) -> 
+        fprintf ppf "@[<2>modtype %a = @[%a@]@]" Ident.format id modtype_declaration mtyd
+    | Tsig_open _ -> ()
+    | Tsig_include mty -> 
+        fprintf ppf "@[<2>include @[%a@] : { all }@]" 
+          module_type mty
+    | Tsig_class cinfoss -> 
+        List.iter (fun cinfos -> fprintf ppf "@[<2> class @[%a@]@]" class_infos cinfos) cinfoss
+    | Tsig_class_type cinfoss -> 
+         List.iter (fun cinfos -> 
+          fprintf ppf "@[<2>class type _ = @[%a@]@]" class_infos cinfos) cinfoss
+
+  and module_expr ppf mexp = match mexp.mod_desc with
+    | Tmod_ident p -> Path.format ppf p
+    | Tmod_structure str -> structure ppf str
+    | Tmod_functor (id, _, mexp) -> 
+        fprintf ppf "@[<2>fun %a ->@ @[%a@]@]" Ident.format id module_expr mexp
+    | Tmod_apply (mexp1, mexp2, _) -> fprintf ppf "@[%a(%a)@]" module_expr mexp1 module_expr mexp2
+    | Tmod_constraint (mexp, mty, _, _) -> 
+        fprintf ppf "@[<2>%a@ : %a@]" module_expr mexp types_module_type mty 
+    | Tmod_unpack (_, mty) -> 
+        fprintf ppf "@[<2>unpack@ %a@]" types_module_type mty
+
+  and module_type ppf mty = match mty.mty_desc with
+    | Tmty_ident p -> Path.format ppf p
+    | Tmty_signature sg -> signature ppf sg
+    | Tmty_functor (id, _mty1, mty2) ->
+        fprintf ppf "@[<2>fun %a ->@ @[%a@]@]" Ident.format id module_type mty2
+    | Tmty_with (mty, _) -> module_type ppf mty
+    | Tmty_typeof mexp -> module_expr ppf mexp
+
+  and modtype_declaration ppf = function 
+    | Tmodtype_abstract -> fprintf ppf "<abst>"
+    | Tmodtype_manifest mty -> module_type ppf mty
+
+  and types_module_type ppf = function
+    | Mty_ident p -> Path.format ppf p
+    | Mty_functor (id, _mty1, mty2) ->
+        fprintf ppf "@[<2>fun %a ->@ @[%a@]@]" Ident.format id types_module_type mty2
+    | Mty_signature sg ->
+        fprintf ppf "@[<v>%a@]" 
+          (Format.list "; " (fun ppf -> function
+            | Sig_value (id, { val_kind = Val_prim _; _ }) -> fprintf ppf "prim %a" Ident.format id
+            | Sig_value (id, _) -> fprintf ppf "val %a" Ident.format id
+            | Sig_type (id, _, _) -> fprintf ppf "type %a" Ident.format id
+            | Sig_exception (id, _) -> fprintf ppf "exception %a" Ident.format id
+            | Sig_module (id, mty, _) -> 
+                fprintf ppf "@[<2>module %a =@ @[%a@]@]" Ident.format id types_module_type mty
+            | Sig_modtype (id, mtyd) -> 
+                fprintf ppf "@[<2>modtype %a = @[%a@]@]" Ident.format id types_modtype_declaration mtyd
+            | Sig_class (id, _, _) -> fprintf ppf "@[class %a@]" Ident.format id
+            | Sig_class_type (id, _, _) -> fprintf ppf "@[class type %a@]" Ident.format id)) sg
+
+  and types_modtype_declaration ppf = function
+    | Modtype_abstract -> fprintf ppf "<abst>"
+    | Modtype_manifest mty -> types_module_type ppf mty
+
+  let saved_type ppf = function
+    | Typedtree.Saved_implementation str | Typedtree.Saved_structure str -> structure ppf str
+    | Typedtree.Saved_signature sg -> signature ppf sg
+    | Typedtree.Saved_structure_item _
+    | Typedtree.Saved_signature_item _
+    | Typedtree.Saved_expression _
+    | Typedtree.Saved_module_type _
+    | Typedtree.Saved_pattern _
+    | Typedtree.Saved_class_expr _ -> ()
+
+  let saved_types ppf = 
+    fprintf ppf "@[<2>{ @[%a@] }@]@." (Format.list "; " saved_type)
+end
+

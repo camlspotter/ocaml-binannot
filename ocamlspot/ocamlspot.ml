@@ -15,6 +15,7 @@
 
 open Format
 open Utils
+open Indexed
 
 open Spot
 open Spoteval
@@ -46,19 +47,7 @@ module Dump = struct
   let top file = 
     match file.File.top with
     | None -> eprintf "NoTOP"
-    | Some (File.Saved_type saved_type) -> 
-        let abst = 
-          match saved_type with
-          | Typedtree.Saved_implementation str | Typedtree.Saved_structure str -> Abstraction.structure str
-          | Typedtree.Saved_signature sg -> Abstraction.signature sg
-          | Typedtree.Saved_structure_item _
-          | Typedtree.Saved_signature_item _
-          | Typedtree.Saved_expression _
-          | Typedtree.Saved_module_type _
-          | Typedtree.Saved_pattern _
-          | Typedtree.Saved_class_expr _ -> assert false
-        in
-        eprintf "@[<2>{ @[%a@] }@]@." (Format.list "; " Abstraction.format) abst
+    | Some (File.Saved_type stype) -> eprintf "%a@." Abstraction.Format.saved_type stype
     | Some (File.Packed paths) -> 
         eprintf "Packed [%a]@." (Format.list "; " (fun ppf s -> fprintf ppf "%S" s)) paths
   ;;
@@ -71,20 +60,6 @@ module Dump = struct
              (Ident.name id)
              (Regioned.format Annot.format) rannot))
       (Hashtbl.to_list file.File.flat)
-           
-(*
-    let str = 
-      let env = File.invalid_env file in
-      let str = Eval.structure env file.File.flat in
-      Binding.set env.Env.binding str; (* dirty hack (dup code) *)
-      str
-    in
-    if C.eager_dump then begin
-      let module Enforcer = Value.Enforcer(struct end) in
-      Enforcer.structure str;
-    end;
-    eprintf "==>@.@[%a@]@." Value.Format.structure str;
-*)
   ;;
 
 end
@@ -96,7 +71,7 @@ module Main = struct
     exit return
 
   let load path =
-
+    let path = File.cmt_of_file path in
     let file = File.load ~load_paths: ["."] path in
     
     if C.dump_file then Dump.file file;
@@ -190,18 +165,16 @@ module Main = struct
         Format.printf "Tree: %s@." (Region.to_string r);
         Format.printf "XTree: <%s:%s>@." file.File.path (Region.to_string r);
 
-(*
 	(* Find the innermost module *)
         let rec find_module_path = function
           | [] -> []
-          | { Regioned.value = Annot.Str (Abstraction.Str_module (id, _)); _ } :: ls
-          | { Regioned.value = Annot.Str (Abstraction.Str_modtype (id, _)); _ } :: ls ->
+          | ( { Regioned.value = Annot.Def (Kind.Module, id, _); _ } 
+            | { Regioned.value = Annot.Def (Kind.Module_type, id, _); _} ) :: ls ->
               id :: find_module_path ls
           | _ :: ls -> find_module_path ls
         in
         Format.printf "In_module: %s@."
           (String.concat "." (List.map Ocaml.Ident.name (List.rev (find_module_path treepath))));
-*)
 
         (* print "Val: val name : type" if it is a Str: val *)
         let print_sig_entry annots =
@@ -228,10 +201,8 @@ module Main = struct
   ;;
 
   let query path spec = 
-    (* CR jfuruse: dup *)
     Debug.format "ocamlspot %s%s@." path (C.SearchSpec.to_string spec);
     Debug.format "cwd: %s@." (Sys.getcwd ());
-    let path = File.cmt_of_file path in
     let file = load path in
 
     begin match spec with
@@ -262,13 +233,10 @@ module Main = struct
         eprintf "uncaught exception: %s@." (Printexc.to_string e);
         bye 1
 
-(*
   let use path spec targets =
-    let targets = if targets = [] then ["."] else targets in
-    (* CR jfuruse: dup *)
     Debug.format "ocamlspot %s%s@." path (C.SearchSpec.to_string spec);
     Debug.format "cwd: %s@." (Sys.getcwd ());
-    let path = File.cmt_of_file path in
+    let targets = if targets = [] then ["."] else targets in
     let file = load path in
 
     let find_by_kind_path k path found =
@@ -310,15 +278,9 @@ module Main = struct
     in
 
     let by_pos file pos = 
-      eprintf "Searching %s:%s ...@." 
-	file.File.path 
-	(Position.to_string pos);
+      eprintf "Searching %s:%s ...@." file.File.path (Position.to_string pos);
       match List.find_map_opt (function 
-	| Annot.Str str_item -> 
-	    begin match Abstraction.ident_of_structure_item str_item with
-	    | Some v -> Some (`Def v)
-	    | None -> None
-	    end
+	| Annot.Def (kind, id, _) -> Some (`Def (kind, id))
 	| Annot.Use (kind, path) -> Some (`Use (kind, path))
 	| _ -> None) (query_by_pos file pos)
       with
@@ -333,7 +295,6 @@ module Main = struct
     end;
     bye 0
   ;;
-*)
 
   let typecheck args =
     let command = Sys.argv.(0) :: args in
@@ -369,8 +330,8 @@ module Main = struct
     | `Typecheck args -> typecheck args
     | `Recheck args -> recheck args
     | `Recheck _ -> assert false
-    | `Use ((path, spec), targets)-> use path spec targets
 *)
+    | `Use ((path, spec), targets)-> use path spec targets
     | _ -> assert false
 end
 

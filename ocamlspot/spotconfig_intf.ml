@@ -35,7 +35,7 @@ module type S = sig
   module SearchSpec : sig
     type t =
       | Pos of Spot.Position.t
-      | Kind of Spot.Kind.t * Spot.Path.t
+      | Kind of Spot.Kind.t * Indexed.Path.t
     val parse : string -> string * t
     val to_string : t -> string
   end

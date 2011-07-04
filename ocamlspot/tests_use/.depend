@@ -1,0 +1,4 @@
+test1.cmo:
+test1.cmx:
+test2.cmo: test1.cmo
+test2.cmx: test1.cmx
