@@ -296,13 +296,13 @@ module Main = struct
     bye 0
   ;;
 
+(* CR jfuruse
   let typecheck args =
     let command = Sys.argv.(0) :: args in
     prerr_endline (String.concat " " command);
     Xmain.main (Array.of_list command)
   ;;
 
-(* CR jfuruse
   let recheck files =
     let recheck mlpath =
       Debug.format "cwd: %s@." (Sys.getcwd ());

@@ -35,13 +35,18 @@ module PIdent = struct
         | None -> "TOP")
 end
 
+(* OCaml type environment *)
+module TypeEnv = Env
+
 module Value : sig
 
   type module_expr_or_type = 
     | Module_expr of Typedtree.module_expr
     | Module_type of Typedtree.module_type
 
-  type t = 
+  type t = { desc : desc; tenv : TypeEnv.t }
+ 
+  and desc = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
     | Closure of PIdent.t * env * Ident.t * module_expr_or_type
@@ -103,7 +108,9 @@ end = struct
     | Module_expr of Typedtree.module_expr
     | Module_type of Typedtree.module_type
 
-  type t = 
+  type t = { desc : desc; tenv : TypeEnv.t }
+
+  and desc = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
     | Closure of PIdent.t * env * Ident.t * module_expr_or_type
@@ -159,8 +166,9 @@ end = struct
       let add_predefined kind id = 
         items := 
           (id, 
-           (kind, eager (Ident { PIdent.filepath = "";
-                                 ident = Some id })))
+           (kind, eager ({ desc = Ident { PIdent.filepath = "";
+                                          ident = Some id };
+                           tenv = TypeEnv.initial} )))
           :: !items
       in
       Predef.build_initial_env 
@@ -177,7 +185,8 @@ end = struct
   end) = struct
     (* prevent looping forever *)
     let cache = ref []
-    let rec t = function
+    let rec t { desc = d; _ } = desc d
+    and desc = function
       | Structure (_, str, str_opt) -> 
           structure str;
           Option.iter str_opt ~f:structure
@@ -202,7 +211,9 @@ end = struct
 
     open Format
 
-    let rec t ppf = function
+    let rec t ppf { desc = d; _ } = desc ppf d
+
+    and desc ppf = function
       | Ident id -> fprintf ppf "Ident(%a)" PIdent.format id
       | Parameter id -> fprintf ppf "Parameter(%a)" PIdent.format id
       | Structure (pid, str, None) -> 
@@ -298,9 +309,11 @@ module Eval = struct
               let path, str = 
                 !str_of_global_ident ~load_paths:env.load_paths id
               in
-              let str = Structure ( { PIdent.filepath = path; ident = None }, 
-                                    str,
-                                    None (* CR jfuruse: todo (read .mli) *) )
+              let str = { desc = Structure ( { PIdent.filepath = path; ident = None }, 
+                                             str,
+                                             None (* CR jfuruse: todo (read .mli) *) );
+                          tenv = TypeEnv.empty (* CR jfuruse? *) }
+                
               in
               Debug.format "@[<2>LOAD SUCCESS %s =@ %a@]@."
                 (Ident.name id)
@@ -309,7 +322,7 @@ module Eval = struct
             with
             | e -> 
                 eprintf "LOAD FAILIURE %s: %s@." (Ident.name id) (Printexc.to_string e);
-                Error e
+                { desc = Error e; tenv = TypeEnv.empty (* CR jfuruse: tenv is meaningless for errors *)}
           end
         else begin 
           lazy begin
@@ -322,27 +335,30 @@ module Eval = struct
               (* it may be a predefed thing *)
               try !!(snd (Env.find Env.predef id)) with Not_found ->
 *)
-              Error (Failure (Printf.sprintf "%s:%s not found in { %s }" 
-                                (Kind.name kind)
-                                (Ident.name id)
-                                (String.concat "; " 
-                                   (List.map Ident.name (Env.domain env)))))
+              { desc = Error (Failure (Printf.sprintf "%s:%s not found in { %s }" 
+                                         (Kind.name kind)
+                                         (Ident.name id)
+                                         (String.concat "; " 
+                                            (List.map Ident.name (Env.domain env)))));
+                tenv = TypeEnv.empty }
           end
         end
         end
     | Path.Pdot (p, name, pos) ->
         lazy begin
-          match !!(find_path env (Kind.Module, p)) with
-          | Ident _ -> (try assert false with e -> Error e)
-          | Parameter pid -> Parameter pid
-          | Closure _ -> (try assert false with e -> Error e)
-          | Error exn -> Error exn
+          let v = !!(find_path env (Kind.Module, p)) in
+          match v.desc with
+          | Ident _ -> (try assert false with e -> { desc = Error e; tenv = TypeEnv.empty })
+          | Parameter pid -> { v with desc = Parameter pid }
+          | Closure _ -> (try assert false with e -> { desc = Error e; tenv = TypeEnv.empty })
+          | Error exn -> { desc = Error exn; tenv = TypeEnv.empty }
           | Structure (pid, str, _ (* CR jfuruse *)) -> 
               Debug.format "Module %s found (%a)@." (Path.name p) PIdent.format pid;
               try
                 !!(find_ident str (kind, name, pos))
               with
-              | Not_found -> Error (Failure (Printf.sprintf "Not_found %s:%d" name pos))
+              | Not_found -> { desc = Error (Failure (Printf.sprintf "Not_found %s:%d" name pos));
+                               tenv = TypeEnv.empty }
         end
 
   and find_ident (str : Value.structure) (kind, name, pos) : Value.z =
@@ -358,7 +374,8 @@ module Eval = struct
             (String.capitalize (Kind.to_string kind))
             name
             Value.Format.structure str;
-          Error (Failure (Printf.sprintf "Not found: %s %s__%d" (String.capitalize (Kind.to_string kind)) name pos))
+          { desc = Error (Failure (Printf.sprintf "Not found: %s %s__%d" (String.capitalize (Kind.to_string kind)) name pos));
+            tenv = TypeEnv.empty }
     end
 
   and module_expr_or_type env idopt : module_expr_or_type -> Value.z = function
