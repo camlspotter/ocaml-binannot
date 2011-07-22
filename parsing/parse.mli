@@ -18,3 +18,10 @@ val implementation : Lexing.lexbuf -> Parsetree.structure
 val interface : Lexing.lexbuf -> Parsetree.signature
 val toplevel_phrase : Lexing.lexbuf -> Parsetree.toplevel_phrase
 val use_file : Lexing.lexbuf -> Parsetree.toplevel_phrase list
+
+val implementation' :
+  Lexing.lexbuf ->
+  Parsetree.structure * Location.string_table option * Longident.lid2loc option
+val interface' :
+  Lexing.lexbuf ->
+  Parsetree.signature * Location.string_table option * Longident.lid2loc option

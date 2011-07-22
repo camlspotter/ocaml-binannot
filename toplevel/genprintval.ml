@@ -262,7 +262,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type value = O.t) = struct
                              Ctype.Cannot_apply -> abstract_type)
                         constr_args in
                     tree_of_constr_with_args (tree_of_constr env path)
-                                           constr_name 0 depth obj ty_args
+                      (Ident.name constr_name) 0 depth obj ty_args
                 | {type_kind = Type_record(lbl_list, rep)} ->
                     begin match check_depth depth obj ty with
                       Some x -> x
@@ -276,7 +276,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type value = O.t) = struct
                                     ty_list
                                 with
                                   Ctype.Cannot_apply -> abstract_type in
-                              let lid = tree_of_label env path lbl_name in
+                              let lid =
+				tree_of_label env path (Ident.name lbl_name) in
                               let v =
                                 tree_of_val (depth - 1) (O.field obj pos)
                                   ty_arg

@@ -756,8 +756,8 @@ let wrap_constraint env arg mty explicit =
 
 (* Type a module value expression *)
 
-let mkstr desc loc =
-  let str = { str_desc = desc; str_loc = loc } in
+let mkstr desc loc env =
+  let str = { str_desc = desc; str_loc = loc; str_env = env } in
   Typedtree.add_saved_type (Saved_structure_item str);
   str
 
@@ -858,6 +858,7 @@ and type_structure funct_body anchor env sstr scope =
   and module_names = ref StringSet.empty
   and modtype_names = ref StringSet.empty in
   let rec type_struct env sstr =
+    let mkstr desc loc = mkstr desc loc env in
     Ctype.init_def(Ident.current_time());
     match sstr with
       [] ->
@@ -1171,20 +1172,32 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     end
   end
 
-let save_signature tsg outputprefix =
+let save_signature (tsg, loc, lloc, penv) outputprefix =
   if !Clflags.annotations then
     let oc = open_out (outputprefix ^ ".cmti") in
-    output_value oc [| Saved_signature tsg |];
+    output_value oc [|
+      Saved_signature tsg;
+      Saved_ident_locations loc;
+      Saved_longident_locations lloc;
+      Saved_path_environments penv
+    |];
     close_out oc
 
-let type_implementation sourcefile outputprefix modulename initial_env ast =
+let type_implementation
+    sourcefile outputprefix modulename initial_env (ast, loc, lloc) =
   try
     Typedtree.set_saved_types [];
+    Env.record_path_environments ();
     let (str, coercion) = type_implementation sourcefile outputprefix modulename initial_env ast in
     if !Clflags.annotations then begin
         Typedtree.set_saved_types [];
         let oc = open_out (outputprefix ^ ".cmt") in
-        output_value oc [| Saved_implementation str |];
+        output_value oc [|
+	  Saved_implementation str;
+	  Saved_ident_locations loc;
+	  Saved_longident_locations lloc;
+	  Saved_path_environments (Env.flush_paths ())
+	|];
         close_out oc;
 (*
         let oc = open_out (outputprefix ^ "_ast2src.ml") in

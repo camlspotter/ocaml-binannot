@@ -157,7 +157,7 @@ let transl_declaration env (name, sdecl) id =
           ) cstrs in
         Ttype_variant cstrs,
         Type_variant (List.map (fun (name, ctys, loc) ->
-              name, List.map (fun cty -> cty.ctyp_type) ctys) cstrs)
+              Ident.create name, List.map (fun cty -> cty.ctyp_type) ctys) cstrs)
         | Ptype_record lbls ->
             let all_labels = ref StringSet.empty in
             List.iter
@@ -174,7 +174,9 @@ let transl_declaration env (name, sdecl) id =
               List.map
                 (fun (name, mut, cty, loc) ->
                   let ty = cty.ctyp_type in
-                  name, mut, match ty.desc with Tpoly(t,[]) -> t | _ -> ty)
+                  Ident.create name,
+		  mut,
+		  match ty.desc with Tpoly(t,[]) -> t | _ -> ty)
                 lbls in
             let rep =
               if List.for_all (fun (name, mut, arg) -> is_float env arg) lbls'
@@ -292,7 +294,9 @@ let check_constraints env (_, sdecl) (_, decl) =
       List.iter
         (fun (name, tyl) ->
           let styl =
-            try let (_,sty,_) = List.find (fun (n,_,_) -> n = name) pl in sty
+            try
+	      let (_,sty,_) = List.find (fun (n,_,_) -> n = Ident.name name) pl in
+	      sty
             with Not_found -> assert false in
           List.iter2
             (fun sty ty ->
@@ -308,7 +312,7 @@ let check_constraints env (_, sdecl) (_, decl) =
       let rec get_loc name = function
           [] -> assert false
         | (name', _, sty, _) :: tl ->
-            if name = name' then sty.ptyp_loc else get_loc name tl
+            if Ident.name name = name' then sty.ptyp_loc else get_loc name tl
       in
       List.iter
         (fun (name, _, ty) ->
@@ -992,10 +996,10 @@ let report_error ppf = function
       begin match decl.type_kind, decl.type_manifest with
         Type_variant tl, _ ->
           explain_unbound ppf ty tl (fun (_,tl) -> Btype.newgenty (Ttuple tl))
-            "case" (fun (lab,_) -> lab ^ " of ")
+            "case" (fun (lab,_) -> Ident.name lab ^ " of ")
       | Type_record (tl, _), _ ->
           explain_unbound ppf ty tl (fun (_,_,t) -> t)
-            "field" (fun (lab,_,_) -> lab ^ ": ")
+            "field" (fun (lab,_,_) -> Ident.name lab ^ ": ")
       | Type_abstract, Some ty' ->
           explain_unbound_single ppf ty ty'
       | _ -> ()

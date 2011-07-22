@@ -41,3 +41,33 @@ let parse s =
     [] -> Lident ""  (* should not happen, but don't put assert false
                         so as not to crash the toplevel (see Genprintval) *)
   | hd :: tl -> List.fold_left (fun p s -> Ldot(p, s)) (Lident hd) tl
+
+module LongidentTbl = Hashtbl.Make
+  (struct
+    type u = t
+    type t = u
+    let equal = ( == )
+    let hash = Hashtbl.hash
+   end)
+
+type lid2loc = Location.t LongidentTbl.t
+
+let longident_table : lid2loc option ref = ref None
+
+let record_longident_locations () =
+  longident_table := Some (LongidentTbl.create 1000)
+
+let flush_longidents () =
+  let idents = !longident_table in
+    longident_table := None;
+    idents
+
+let add_longident loc i =
+  match !longident_table with
+    | Some t -> LongidentTbl.add t i loc
+    | None -> ()
+
+let remove_longident i =
+  match !longident_table with
+    | Some t -> LongidentTbl.remove t i
+    | None -> ()

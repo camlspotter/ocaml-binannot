@@ -94,6 +94,26 @@ let keyword_table =
     "asr", INFIXOP4("asr")
 ]
 
+(* A table for locating indents *)
+
+let ident_table = ref None
+
+let record_ident_locations () =
+  ident_table := Some (Location.StringTbl.create 1000)
+
+let flush_idents () =
+  let idents = !ident_table in
+    ident_table := None;
+    idents
+
+let ident i lexbuf =
+  match !ident_table with
+    | Some t -> Location.StringTbl.add t i (Location.curr lexbuf)
+    | None -> ()
+
+let lident i lexbuf = ident i lexbuf ; LIDENT i
+let uident i lexbuf = ident i lexbuf ; UIDENT i
+
 (* To buffer string literals *)
 
 let initial_string_buffer = String.create 256
@@ -271,9 +291,9 @@ rule token = parse
           try
             Hashtbl.find keyword_table s
           with Not_found ->
-            LIDENT s }
+            lident s lexbuf }
   | uppercase identchar *
-      { UIDENT(Lexing.lexeme lexbuf) }       (* No capitalized keywords *)
+      { uident(Lexing.lexeme lexbuf) lexbuf }      (* No capitalized keywords *)
   | int_literal
       { try
           INT (cvt_int_literal (Lexing.lexeme lexbuf))

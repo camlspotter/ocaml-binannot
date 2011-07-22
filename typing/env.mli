@@ -50,6 +50,35 @@ val lookup_modtype: Longident.t -> t -> Path.t * modtype_declaration
 val lookup_class: Longident.t -> t -> Path.t * class_declaration
 val lookup_cltype: Longident.t -> t -> Path.t * class_type_declaration
 
+(* Fold over all identifiers (for analysis purpose) *)
+val fold_values:
+  (string -> Path.t -> value_description -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+val fold_types:
+  (string -> Path.t -> type_declaration -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+val fold_constructors:
+  (string -> Path.t -> constructor_description -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+val fold_labels:
+  (string -> Path.t -> label_description -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
+(* Persistent structures are only traversed if they are already loaded. *)
+val fold_modules:
+  (string -> Path.t -> module_type -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
+val fold_modtypes:
+  (string -> Path.t -> modtype_declaration -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+val fold_classs:
+  (string -> Path.t -> class_declaration -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+val fold_cltypes:
+  (string -> Path.t -> class_type_declaration -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
 (* Insertion by identifier *)
 
 val add_value: Ident.t -> value_description -> t -> t
@@ -145,3 +174,23 @@ val report_error: formatter -> error -> unit
 (* Forward declaration to break mutual recursion with Includemod. *)
 val check_modtype_inclusion:
       (t -> module_type -> Path.t -> module_type -> unit) ref
+
+(* Duplicated from Longident (linking problem with genannot) *)
+module LongidentTbl : Hashtbl.S with type key = Longident.t
+
+type path_sort =
+  | Value
+  | Annot
+  | Constructor
+  | Label
+  | Type
+  | Module
+  | Modtype
+  | Class
+  | Cltype
+
+type lid2env = (path_sort * t) LongidentTbl.t
+
+val record_path_environments : unit -> unit
+
+val flush_paths : unit -> lid2env option

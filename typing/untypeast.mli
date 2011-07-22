@@ -19,3 +19,4 @@
 val untype_structure : Typedtree.structure -> Parsetree.structure
 val untype_signature : Typedtree.signature -> Parsetree.signature
 
+val lident_of_path : Path.t -> Longident.t

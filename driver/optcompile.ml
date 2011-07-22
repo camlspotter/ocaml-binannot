@@ -68,6 +68,12 @@ let check_unit_name ppf filename name =
 
 (* Compile a .mli file *)
 
+(* duplicated from compile *)
+let transl_signature env (ast, loc, lloc) =
+  Env.record_path_environments ();
+  let tsg = Typemod.transl_signature env ast in
+  tsg, loc, lloc, (Env.flush_paths ())
+
 let interface ppf sourcefile outputprefix =
   Location.input_name := sourcefile;
   init_path ();
@@ -77,10 +83,10 @@ let interface ppf sourcefile outputprefix =
   Env.set_unit_name modulename;
   let inputfile = Pparse.preprocess sourcefile in
   try
-    let ast =
-      Pparse.file ppf inputfile Parse.interface ast_intf_magic_number in
-    if !Clflags.dump_parsetree then fprintf ppf "%a@." Printast.interface ast;
-    let sg = Typemod.transl_signature (initial_env()) ast in
+    let parsetree, _, _ as ast =
+      Pparse.file ppf inputfile Parse.interface' ast_intf_magic_number in
+    if !Clflags.dump_parsetree then fprintf ppf "%a@." Printast.interface parsetree;
+    let sg, _, _, _ = transl_signature (initial_env()) ast in
     if !Clflags.print_types then
       fprintf std_formatter "%a@." Printtyp.signature
                                    (Typemod.simplify_signature sg.sig_type);
@@ -117,15 +123,29 @@ let implementation ppf sourcefile outputprefix =
   let objfile = outputprefix ^ ext_obj in
   try
     if !Clflags.print_types then ignore(
-      Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
+      let parsetree, _, _ as ast =
+	Pparse.file
+	  ppf inputfile Parse.implementation' ast_impl_magic_number
+      in
+      parsetree
       ++ print_if ppf Clflags.dump_parsetree Printast.implementation
       ++ Unused_var.warn ppf
-      ++ Typemod.type_implementation sourcefile outputprefix modulename env)
+      ++ ignore;
+      ast
+      ++ Typemod.type_implementation
+	sourcefile outputprefix modulename env)
     else begin
-      Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
+      let parsetree, _, _ as ast =
+	Pparse.file
+	  ppf inputfile Parse.implementation' ast_impl_magic_number
+      in
+      parsetree
       ++ print_if ppf Clflags.dump_parsetree Printast.implementation
       ++ Unused_var.warn ppf
-      ++ Typemod.type_implementation sourcefile outputprefix modulename env
+      ++ ignore;
+      ast
+      ++ Typemod.type_implementation
+	sourcefile outputprefix modulename env
       ++ Translmod.transl_store_implementation modulename
       +++ print_if ppf Clflags.dump_rawlambda Printlambda.lambda
       +++ Simplif.simplify_lambda

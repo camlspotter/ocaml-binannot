@@ -95,14 +95,15 @@ let build_initial_env add_type add_exception empty_env =
   and decl_bool =
     {type_params = [];
      type_arity = 0;
-     type_kind = Type_variant(["false", []; "true", []]);
+     type_kind =
+	Type_variant([Ident.create "false", []; Ident.create "true", []]);
      type_private = Public;
      type_manifest = None;
      type_variance = []}
   and decl_unit =
     {type_params = [];
      type_arity = 0;
-     type_kind = Type_variant(["()", []]);
+     type_kind = Type_variant([Ident.create "()", []]);
      type_private = Public;
      type_manifest = None;
      type_variance = []}
@@ -126,7 +127,8 @@ let build_initial_env add_type add_exception empty_env =
     {type_params = [tvar];
      type_arity = 1;
      type_kind =
-       Type_variant(["[]", []; "::", [tvar; type_list tvar]]);
+       Type_variant([Ident.create "[]", [];
+		     Ident.create "::", [tvar; type_list tvar]]);
      type_private = Public;
      type_manifest = None;
      type_variance = [true, false, false]}
@@ -148,7 +150,8 @@ let build_initial_env add_type add_exception empty_env =
     let tvar = newgenvar() in
     {type_params = [tvar];
      type_arity = 1;
-     type_kind = Type_variant(["None", []; "Some", [tvar]]);
+     type_kind = Type_variant([Ident.create "None", [];
+			       Ident.create "Some", [tvar]]);
      type_private = Public;
      type_manifest = None;
      type_variance = [true, false, false]}

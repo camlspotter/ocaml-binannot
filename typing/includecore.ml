@@ -163,9 +163,10 @@ let report_type_mismatch first second decl ppf =
 let rec compare_variants env decl1 decl2 n cstrs1 cstrs2 =
   match cstrs1, cstrs2 with
     [], []           -> []
-  | [], (cstr2,_)::_ -> [Field_missing (true, cstr2)]
-  | (cstr1,_)::_, [] -> [Field_missing (false, cstr1)]
+  | [], (cstr2,_)::_ -> [Field_missing (true, Ident.name cstr2)]
+  | (cstr1,_)::_, [] -> [Field_missing (false, Ident.name cstr1)]
   | (cstr1, arg1)::rem1, (cstr2, arg2)::rem2 ->
+    let cstr1 = Ident.name cstr1 and cstr2 = Ident.name cstr2 in
       if cstr1 <> cstr2 then [Field_names (n, cstr1, cstr2)] else
       if List.length arg1 <> List.length arg2 then [Field_arity cstr1] else
       if Misc.for_all2
@@ -179,9 +180,10 @@ let rec compare_variants env decl1 decl2 n cstrs1 cstrs2 =
 let rec compare_records env decl1 decl2 n labels1 labels2 =
   match labels1, labels2 with
     [], []           -> []
-  | [], (lab2,_,_)::_ -> [Field_missing (true, lab2)]
-  | (lab1,_,_)::_, [] -> [Field_missing (false, lab1)]
+  | [], (lab2,_,_)::_ -> [Field_missing (true, Ident.name lab2)]
+  | (lab1,_,_)::_, [] -> [Field_missing (false, Ident.name lab1)]
   | (lab1, mut1, arg1)::rem1, (lab2, mut2, arg2)::rem2 ->
+    let lab1 = Ident.name lab1 and lab2 = Ident.name lab2 in
       if lab1 <> lab2 then [Field_names (n, lab1, lab2)] else
       if mut1 <> mut2 then [Field_mutable lab1] else
       if Ctype.equal env true (arg1::decl1.type_params)
