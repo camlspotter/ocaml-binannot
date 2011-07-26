@@ -372,8 +372,8 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       match v with
       | Value.Ident id -> id, find_loc id
       | Value.Parameter id -> id, find_loc id
-      | Value.Structure (id, _, _)  -> id, find_loc id
-      | Value.Closure (id, _, _, _) -> id, find_loc id
+      | Value.Structure (id, _, _, _)  -> id, find_loc id
+      | Value.Closure (id, _, _, _, _) -> id, find_loc id
       | Value.Error (Failure _ as e) -> raise e
       | Value.Error (Load.Old_spot _ as exn) -> raise exn
       | Value.Error exn -> raise exn
@@ -384,10 +384,10 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     let structure = 
       match file.top with (* The only use of .top *)
       | Some (Saved_type (Typedtree.Saved_implementation str)) -> 
-          Eval.structure (empty_env file) str
+          Eval.structure Ocaml.Env.initial (* XXX *) (empty_env file) str
 
       | Some (Saved_type (Typedtree.Saved_signature sg)) -> 
-          Eval.signature (empty_env file) sg
+          Eval.signature Ocaml.Env.initial (empty_env file) sg
 
       | Some (Packed paths) -> 
           let id_strs = 
@@ -399,7 +399,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
             ) paths 
           in
           List.map (fun (id, pident, str) -> 
-            id, (Kind.Module, eager (Value.Structure (pident, str, None)))) id_strs
+            id, (Kind.Module, eager (Value.Structure (pident, str, None, Ocaml.Env.initial)))) id_strs
       | Some _ -> assert false
       | None -> assert false
     in

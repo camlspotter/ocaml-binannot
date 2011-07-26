@@ -44,10 +44,10 @@ module Value : sig
     | Module_type of Typedtree.module_type
 
   type t = 
-    | Ident of PIdent.t * TypeEnv.t
+    | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *) * TypeEnv.t
     | Closure of PIdent.t * env * Ident.t * module_expr_or_type * TypeEnv.t
-    | Parameter of PIdent.t * TypeEnv.t
+    | Parameter of PIdent.t
     | Error of exn 
 
   and structure = structure_item list
@@ -106,10 +106,10 @@ end = struct
     | Module_type of Typedtree.module_type
 
   type t = 
-    | Ident of PIdent.t * TypeEnv.t
+    | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *) * TypeEnv.t
     | Closure of PIdent.t * env * Ident.t * module_expr_or_type * TypeEnv.t
-    | Parameter of PIdent.t * TypeEnv.t
+    | Parameter of PIdent.t
     | Error of exn 
 
   and structure = structure_item list
@@ -162,8 +162,7 @@ end = struct
         items := 
           (id, 
            (kind, eager (Ident ({ PIdent.filepath = "";
-                                  ident = Some id },
-                                TypeEnv.initial))))
+                                  ident = Some id } ))))
           :: !items
       in
       Predef.build_initial_env 
@@ -206,8 +205,8 @@ end = struct
     open Format
 
     let rec t ppf = function
-      | Ident (id, _) -> fprintf ppf "Ident(%a)" PIdent.format id
-      | Parameter (id, _) -> fprintf ppf "Parameter(%a)" PIdent.format id
+      | Ident id -> fprintf ppf "Ident(%a)" PIdent.format id
+      | Parameter id -> fprintf ppf "Parameter(%a)" PIdent.format id
       | Structure (pid, str, None, _) -> 
             fprintf ppf "@[<v2>Structure(%a)@ %a None@]"
               PIdent.format pid
@@ -283,7 +282,7 @@ module Eval = struct
   let str_of_global_ident = ref (fun ~load_paths:_ _ -> assert false : load_paths: string list -> Ident.t -> string * Value.structure)
   let packed = ref (fun _ _ -> assert false : Env.t -> string -> Value.t)
 
-  let z_of_id tenv env id = eager (Ident ({ PIdent.filepath = env.Env.path; ident = Some id }, tenv))
+  let z_of_id env id = eager (Ident { PIdent.filepath = env.Env.path; ident = Some id })
 
   let rec find_path env (kind, p) : Value.z = 
     match p with
@@ -338,7 +337,7 @@ module Eval = struct
         lazy begin
           match !!(find_path env (Kind.Module, p)) with
           | Ident _ -> (try assert false with e -> Error e)
-          | Parameter (pid, tenv) -> Parameter (pid, tenv)
+          | Parameter pid -> Parameter pid
           | Closure _ -> (try assert false with e -> Error e)
           | Error exn -> Error exn
           | Structure (pid, str, _ (* CR jfuruse *), _tenv) -> 
@@ -428,9 +427,8 @@ module Eval = struct
   (* expand internal Include and get alist by Ident.t *)
   (* the list order is REVERSED and is last-defined-first, 
      but it is REQUIRED for environment query *)
-  and structure tenv env0 str : Value.structure =
+  and structure _tenv env0 str : Value.structure =
 
-    let z_of_id = z_of_id tenv in
     List.fold_left (fun str sitem ->
       match sitem.str_desc with
       | Tstr_eval _ -> str
@@ -513,8 +511,8 @@ module Eval = struct
               match v_mexp with
               | Structure (_, str, _ (* CR jfuruse *), _) -> 
                   List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
-              | Parameter (pid, tenv) -> 
-                  List.map (fun (k,_,id) -> (k, Ocaml.Ident.name id), eager (Parameter (pid, tenv))) kids
+              | Parameter pid -> 
+                  List.map (fun (k,_,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
               | Ident _ -> assert false
               | Closure _ -> assert false
               | Error _ -> [] (* error *)
@@ -534,9 +532,8 @@ module Eval = struct
           in
           str' @ str) [] str.str_items
 
-  and signature tenv env0 sg : Value.structure = 
+  and signature _tenv env0 sg : Value.structure = 
 
-    let z_of_id = z_of_id tenv in
     List.fold_left (fun str sitem ->
       match sitem.sig_desc with
       | Tsig_open _ -> str
@@ -603,8 +600,8 @@ module Eval = struct
               match v_mexp with
               | Structure (_, str, _ (* CR jfuruse *), _) -> 
                   List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
-              | Parameter (pid, tenv) -> 
-                  List.map (fun (k,id) -> (k, Ocaml.Ident.name id), eager (Parameter (pid, tenv))) kids
+              | Parameter pid -> 
+                  List.map (fun (k,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
               | Ident _ -> assert false
               | Closure _ -> assert false
               | Error _ -> [] (* error *)
@@ -627,7 +624,7 @@ module Eval = struct
   and apply v1 v2 =
     lazy begin match !!v1 with
     | Ident _ -> assert false
-    | Parameter (pid, tenv) -> Parameter (pid, tenv)
+    | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
     | Closure (_, env, id, mexp_or_mty, _tenv) -> 
@@ -652,7 +649,7 @@ module Eval = struct
           let z = lazy begin
             let str = 
               match !!(module_expr env None mexp) with
-              | Structure (_pid, str, _) -> str
+              | Structure (_pid, str, _, _) -> str
               | _ -> assert false
             in
             !!(find_ident str (k, Ocaml.Ident.name id', Ocaml.Ident.binding_time id'))
@@ -663,7 +660,7 @@ module Eval = struct
           let z = lazy begin
             let str = 
               match !!(module_type env None mty) with
-              | Structure (_pid, str, _) -> str
+              | Structure (_pid, str, _, _) -> str
               | _ -> assert false
             in
             !!(find_ident str (k, Ocaml.Ident.name id, Ocaml.Ident.binding_time id))

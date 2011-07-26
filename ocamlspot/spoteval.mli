@@ -28,10 +28,10 @@ module Value : sig
 
   type t =
     | Ident of PIdent.t
-    | Structure of PIdent.t * structure * structure option
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
+    | Structure of PIdent.t * structure * structure option (* sig part *) * Ocaml.Env.t
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type * Ocaml.Env.t
     | Parameter of PIdent.t
-    | Error of exn
+    | Error of exn 
 
   and structure = structure_item list
 
@@ -116,8 +116,8 @@ module Eval : sig
     Ident.t option ->
     Value.module_expr_or_type -> Value.z
 
-  val structure : Env.t -> Typedtree.structure -> Value.structure
-  val signature : Env.t -> Typedtree.signature -> Value.structure
+  val structure : Ocaml.Env.t -> Env.t -> Typedtree.structure -> Value.structure
+  val signature : Ocaml.Env.t -> Env.t -> Typedtree.signature -> Value.structure
     
   val apply : Value.z -> Value.z -> Value.z
 

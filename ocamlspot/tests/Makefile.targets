@@ -12,6 +12,7 @@ exception.cmo \
 external.cmo \
 external_include.cmo \
 fstclassmodule.cmo \
+fstclassmodule2.cmo \
 functor.cmo \
 functor_parameter.cmo \
 immediate_include.cmo \

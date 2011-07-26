@@ -305,7 +305,7 @@ module Kind = struct
     | "ct" | "class_type"  -> Class_type
     | _                    -> raise Not_found
 
-  (* CR jfuruse: DUP *)
+  (* CR jfuruse: DUP (kident_of_sigitem in include_coercion) *)
   let kidents_of_mty env mty = 
     let open Typedtree in
     let open Types in
