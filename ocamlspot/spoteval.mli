@@ -22,14 +22,10 @@ end
 
 module Value : sig
 
-  type module_expr_or_type = 
-    | Module_expr of Typedtree.module_expr
-    | Module_type of Typedtree.module_type
-
   type t =
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * (z -> z)
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -48,6 +44,7 @@ module Value : sig
       
   and binding (** = Binding.t *)
 
+(* CR jfuruse: not required
   (** functions which force lazy parts of the given values *)
   module Enforcer : functor (A : sig  end) -> sig
     val t : t -> unit
@@ -57,6 +54,7 @@ module Value : sig
     val structure_item : structure_item -> unit
     val z : z -> unit
   end
+*)
 
   module Format : sig
     val t : Ocaml.Format.t -> t -> unit
@@ -111,13 +109,8 @@ module Eval : sig
     
   val find_ident : Value.structure -> Kind.t * string * int -> Value.z
 
-  val module_expr_or_type :
-    Env.t ->
-    Ident.t option ->
-    Value.module_expr_or_type -> Value.z
-
-  val structure : Ocaml.Env.t -> Env.t -> Typedtree.structure -> Value.structure
-  val signature : Ocaml.Env.t -> Env.t -> Typedtree.signature -> Value.structure
+  val structure : Env.t -> Typedtree.structure -> Value.structure
+  val signature : Env.t -> Typedtree.signature -> Value.structure
     
   val apply : Value.z -> Value.z -> Value.z
 

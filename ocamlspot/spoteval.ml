@@ -35,18 +35,12 @@ module PIdent = struct
         | None -> "TOP")
 end
 
-module TypeEnv = Env (* OCaml's type environment *)
-
 module Value : sig
-
-  type module_expr_or_type = 
-    | Module_expr of Typedtree.module_expr
-    | Module_type of Typedtree.module_type
 
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * (z -> z)
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -101,14 +95,10 @@ module Value : sig
 
 end = struct
 
-  type module_expr_or_type = 
-    | Module_expr of Typedtree.module_expr
-    | Module_type of Typedtree.module_type
-
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
+    | Closure of PIdent.t * env * Ident.t * (z -> z)
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -216,13 +206,10 @@ end = struct
               PIdent.format pid
               structure str
               structure str'
-      | Closure (pid, _, id, module_expr_or_type) ->
-            fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
+      | Closure (pid, _, id, _f) ->
+            fprintf ppf "(@[<2>(%a =)fun %s -> ...@])" 
               PIdent.format pid
               (Ident.name id)
-              (fun ppf -> match module_expr_or_type with
-              | Module_expr _mexp -> fprintf ppf "MEXP" (* CR jfuruse *)
-              | Module_type _mty -> fprintf ppf "MTY" (* CR jfuruse *))
       | Error (Failure s) -> fprintf ppf "ERROR(%s)" s
       | Error exn -> fprintf ppf "ERROR(%s)" (Printexc.to_string exn)
             
@@ -363,16 +350,12 @@ module Eval = struct
           Error (Failure (Printf.sprintf "Not found: %s %s__%d" (String.capitalize (Kind.to_string kind)) name pos))
     end
 
-  and module_expr_or_type env idopt : module_expr_or_type -> Value.z = function
-    | Module_expr mexp -> module_expr env idopt mexp 
-    | Module_type mty -> module_type env idopt mty
-
   and module_expr env idopt mexp =
     match mexp.mod_desc with
     | Tmod_ident p -> find_path env (Kind.Module, p)
     | Tmod_structure str -> 
         lazy begin
-          let str = structure mexp.mod_env env str in
+          let str = structure env str in
           Structure ({ PIdent.filepath= env.path; ident = idopt }, str, None)
         end
     | Tmod_functor (id, _mty, mexp) -> 
@@ -380,7 +363,9 @@ module Eval = struct
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, Module_expr mexp))
+                        env, 
+                        id, 
+                        fun v -> module_expr (Env.override env (id, (Kind.Module, v))) None mexp))
     | Tmod_constraint (mexp, _mty, _, _) -> 
         (* [mty] may not be a simple signature but an ident which is
            hard to get its definition at this point. 
@@ -404,14 +389,14 @@ module Eval = struct
         let v1 = module_expr env None mexp1 in
         let v2 = module_expr env None mexp2 in
 	apply v1 v2
-    | Tmod_unpack (_mty, _) -> lazy (Error (Failure "packed"))
+    | Tmod_unpack (_, mty) -> types_module_type env idopt mty
 
   and module_type env idopt mty = 
     match mty.mty_desc with
     | Tmty_ident p -> find_path env (Kind.Module_type, p)
     | Tmty_signature sg -> 
         lazy begin
-          let sg = signature mty.mty_env env sg in
+          let sg = signature env sg in
           Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None)
         end
     | Tmty_functor (id, _mty1, mty2) ->
@@ -419,14 +404,30 @@ module Eval = struct
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, Module_type mty2))
+                        env, id, fun v -> module_type (Env.override env (id, (Kind.Module, v))) None mty2))
     | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
+
+  and types_module_type env idopt = 
+    let open Types in
+    function 
+    | Mty_ident p -> find_path env (Kind.Module_type, p)
+    | Mty_signature sg -> 
+        lazy begin
+          let sg = types_signature env sg in
+          Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None)
+        end
+    | Mty_functor (id, _mty1, mty2) ->
+        Debug.format "evaluating functor (arg %s) under %s@."
+          (Ident.name id)
+          (String.concat "; " (List.map Ident.name (Env.domain env)));
+        eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
+                        env, id, fun v -> types_module_type (Env.override env (id, (Kind.Module, v))) None mty2))
 
   (* expand internal Include and get alist by Ident.t *)
   (* the list order is REVERSED and is last-defined-first, 
      but it is REQUIRED for environment query *)
-  and structure _tenv env0 str : Value.structure =
+  and structure env0 str : Value.structure =
 
     List.fold_left (fun str sitem ->
       match sitem.str_desc with
@@ -531,7 +532,7 @@ module Eval = struct
           in
           str' @ str) [] str.str_items
 
-  and signature _tenv env0 sg : Value.structure = 
+  and signature env0 sg : Value.structure = 
 
     List.fold_left (fun str sitem ->
       match sitem.sig_desc with
@@ -620,18 +621,72 @@ module Eval = struct
           in
           str' @ str) [] sg.sig_items
 
+  and types_signature env0 sg : Value.structure = 
+
+    List.fold_left (fun str sitem ->
+      let open Types in
+      match sitem with
+      | Sig_value (id, { Types.val_kind = Types.Val_prim _; _ }) -> (id, (Kind.Primitive, z_of_id env0 id)) :: str
+      | Sig_value (id, _) -> (id, (Kind.Value, z_of_id env0 id)) :: str
+      | Sig_type (id,_,_) -> (id, (Kind.Type, z_of_id env0 id)) :: str
+      | Sig_exception (id, _) ->  (id, (Kind.Exception, z_of_id env0 id)) :: str 
+      | Sig_class (id, _cldecl, _) ->
+(*
+          List.concat (List.map (fun cinfo -> 
+            [ (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) clist) @ str
+*)
+          (id, (Kind.Class, z_of_id env0 id)) :: str 
+      | Sig_class_type (id, _ctdecl, _) -> 
+(*
+          List.concat (List.map (fun cinfo -> 
+            [ (cinfo.ci_id_class, (Kind.Class, z_of_id env0 cinfo.ci_id_class));
+              (cinfo.ci_id_class_type, (Kind.Class_type, z_of_id env0 cinfo.ci_id_class_type));
+              (cinfo.ci_id_object, (Kind.Type, z_of_id env0 cinfo.ci_id_object));
+              (cinfo.ci_id_typesharp, (Kind.Type, z_of_id env0 cinfo.ci_id_typesharp)) ] ) clist) @ str
+*)
+          (id, (Kind.Class_type, z_of_id env0 id)) :: str
+      | Sig_module (id, mty, _) -> 
+          let v = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(types_module_type env (Some id) mty)
+            with
+            | exn -> Error exn
+          end
+          in
+          (id, (Kind.Module, v)) :: str
+      | Sig_modtype (_id, Modtype_abstract) -> str (* CR jfuruse: abstract type is ignored! *)
+      | Sig_modtype (id, Modtype_manifest mty) ->
+          let v = lazy begin
+            try
+              (* create it lazily for recursiveness of flat *)
+              let env = Env.overrides env0 str in
+              !!(types_module_type env (Some id) mty) (* ??? *)
+            with
+            | exn -> Error exn
+          end
+          in
+          (id, (Kind.Module_type, v)) :: str
+    ) [] sg
+
   and apply v1 v2 =
     lazy begin match !!v1 with
     | Ident _ -> assert false
     | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
-    | Closure (_, env, id, mexp_or_mty) -> 
+    | Closure (_, _env, _id, f) -> !!(f v2)
+(*
         match mexp_or_mty with
         | Module_expr mexp ->
             !!(module_expr (Env.override env (id, (Kind.Module, v2)))
                  None(*?*) mexp)
         | Module_type _mty -> assert false
+*)
     end
 
   and flat env flat_tbl : Value.structure =

@@ -384,10 +384,10 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
     let structure = 
       match file.top with (* The only use of .top *)
       | Some (Saved_type (Typedtree.Saved_implementation str)) -> 
-          Eval.structure Ocaml.Env.initial (* XXX *) (empty_env file) str
+          Eval.structure (empty_env file) str
 
       | Some (Saved_type (Typedtree.Saved_signature sg)) -> 
-          Eval.signature Ocaml.Env.initial (empty_env file) sg
+          Eval.signature (empty_env file) sg
 
       | Some (Packed paths) -> 
           let id_strs = 
