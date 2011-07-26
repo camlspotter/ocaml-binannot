@@ -45,8 +45,8 @@ module Value : sig
 
   type t = 
     | Ident of PIdent.t
-    | Structure of PIdent.t * structure * structure option (* sig part *) * TypeEnv.t
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type * TypeEnv.t
+    | Structure of PIdent.t * structure * structure option (* sig part *)
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -107,8 +107,8 @@ end = struct
 
   type t = 
     | Ident of PIdent.t
-    | Structure of PIdent.t * structure * structure option (* sig part *) * TypeEnv.t
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type * TypeEnv.t
+    | Structure of PIdent.t * structure * structure option (* sig part *)
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -180,10 +180,10 @@ end = struct
     (* prevent looping forever *)
     let cache = ref []
     let rec t = function
-      | Structure (_, str, str_opt, _) -> 
+      | Structure (_, str, str_opt) -> 
           structure str;
           Option.iter str_opt ~f:structure
-      | Closure (_, e, _, _, _) -> env e
+      | Closure (_, e, _, _) -> env e
       | Ident _ | Error _ | Parameter _ -> ()
     and env e = binding e.binding
     and binding b =
@@ -207,16 +207,16 @@ end = struct
     let rec t ppf = function
       | Ident id -> fprintf ppf "Ident(%a)" PIdent.format id
       | Parameter id -> fprintf ppf "Parameter(%a)" PIdent.format id
-      | Structure (pid, str, None, _) -> 
+      | Structure (pid, str, None) -> 
             fprintf ppf "@[<v2>Structure(%a)@ %a None@]"
               PIdent.format pid
             structure str
-      | Structure (pid, str, Some str', _) -> 
+      | Structure (pid, str, Some str') -> 
             fprintf ppf "@[<v2>Structure(%a)@ %a (Some %a)@]"
               PIdent.format pid
               structure str
               structure str'
-      | Closure (pid, _, id, module_expr_or_type, _) ->
+      | Closure (pid, _, id, module_expr_or_type) ->
             fprintf ppf "(@[<2>(%a =)fun %s ->@ @[%t@]@])" 
               PIdent.format pid
               (Ident.name id)
@@ -302,8 +302,7 @@ module Eval = struct
               in
               let str = Structure ( { PIdent.filepath = path; ident = None }, 
                                     str,
-                                    None (* CR jfuruse: todo (read .mli) *),
-                                    TypeEnv.initial (* CR jfuruse? *))
+                                    None (* CR jfuruse: todo (read .mli) *))
               in
               Debug.format "@[<2>LOAD SUCCESS %s =@ %a@]@."
                 (Ident.name id)
@@ -340,7 +339,7 @@ module Eval = struct
           | Parameter pid -> Parameter pid
           | Closure _ -> (try assert false with e -> Error e)
           | Error exn -> Error exn
-          | Structure (pid, str, _ (* CR jfuruse *), _tenv) -> 
+          | Structure (pid, str, _ (* CR jfuruse *)) -> 
               Debug.format "Module %s found (%a)@." (Path.name p) PIdent.format pid;
               try
                 !!(find_ident str (kind, name, pos))
@@ -374,14 +373,14 @@ module Eval = struct
     | Tmod_structure str -> 
         lazy begin
           let str = structure mexp.mod_env env str in
-          Structure ({ PIdent.filepath= env.path; ident = idopt }, str, None, mexp.mod_env)
+          Structure ({ PIdent.filepath= env.path; ident = idopt }, str, None)
         end
     | Tmod_functor (id, _mty, mexp) -> 
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, Module_expr mexp, mexp.mod_env))
+                        env, id, Module_expr mexp))
     | Tmod_constraint (mexp, _mty, _, _) -> 
         (* [mty] may not be a simple signature but an ident which is
            hard to get its definition at this point. 
@@ -413,14 +412,14 @@ module Eval = struct
     | Tmty_signature sg -> 
         lazy begin
           let sg = signature mty.mty_env env sg in
-          Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None, mty.mty_env)
+          Structure ({ PIdent.filepath= env.path; ident = idopt }, sg, None)
         end
     | Tmty_functor (id, _mty1, mty2) ->
         Debug.format "evaluating functor (arg %s) under %s@."
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, Module_type mty2, mty.mty_env))
+                        env, id, Module_type mty2))
     | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
 
@@ -509,7 +508,7 @@ module Eval = struct
                 !!(module_expr env None(*?*) mexp)
               in
               match v_mexp with
-              | Structure (_, str, _ (* CR jfuruse *), _) -> 
+              | Structure (_, str, _ (* CR jfuruse *)) -> 
                   List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
               | Parameter pid -> 
                   List.map (fun (k,_,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
@@ -598,7 +597,7 @@ module Eval = struct
                 !!(module_type env None(*?*) mty)
               in
               match v_mexp with
-              | Structure (_, str, _ (* CR jfuruse *), _) -> 
+              | Structure (_, str, _ (* CR jfuruse *)) -> 
                   List.map (fun (id, (k, v)) -> (k, Ocaml.Ident.name id), v) str
               | Parameter pid -> 
                   List.map (fun (k,id) -> (k, Ocaml.Ident.name id), eager (Parameter pid)) kids
@@ -627,7 +626,7 @@ module Eval = struct
     | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
-    | Closure (_, env, id, mexp_or_mty, _tenv) -> 
+    | Closure (_, env, id, mexp_or_mty) -> 
         match mexp_or_mty with
         | Module_expr mexp ->
             !!(module_expr (Env.override env (id, (Kind.Module, v2)))
@@ -649,7 +648,7 @@ module Eval = struct
           let z = lazy begin
             let str = 
               match !!(module_expr env None mexp) with
-              | Structure (_pid, str, _, _) -> str
+              | Structure (_pid, str, _) -> str
               | _ -> assert false
             in
             !!(find_ident str (k, Ocaml.Ident.name id', Ocaml.Ident.binding_time id'))
@@ -660,7 +659,7 @@ module Eval = struct
           let z = lazy begin
             let str = 
               match !!(module_type env None mty) with
-              | Structure (_pid, str, _, _) -> str
+              | Structure (_pid, str, _) -> str
               | _ -> assert false
             in
             !!(find_ident str (k, Ocaml.Ident.name id, Ocaml.Ident.binding_time id))

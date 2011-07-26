@@ -28,8 +28,8 @@ module Value : sig
 
   type t =
     | Ident of PIdent.t
-    | Structure of PIdent.t * structure * structure option (* sig part *) * Ocaml.Env.t
-    | Closure of PIdent.t * env * Ident.t * module_expr_or_type * Ocaml.Env.t
+    | Structure of PIdent.t * structure * structure option (* sig part *)
+    | Closure of PIdent.t * env * Ident.t * module_expr_or_type
     | Parameter of PIdent.t
     | Error of exn 
 
