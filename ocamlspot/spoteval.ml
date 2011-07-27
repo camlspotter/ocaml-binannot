@@ -40,7 +40,7 @@ module Value : sig
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * (z -> z)
+    | Closure of PIdent.t * Ident.t * (z -> z)
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -98,7 +98,7 @@ end = struct
   type t = 
     | Ident of PIdent.t
     | Structure of PIdent.t * structure * structure option (* sig part *)
-    | Closure of PIdent.t * env * Ident.t * (z -> z)
+    | Closure of PIdent.t * Ident.t * (z -> z)
     | Parameter of PIdent.t
     | Error of exn 
 
@@ -173,7 +173,7 @@ end = struct
       | Structure (_, str, str_opt) -> 
           structure str;
           Option.iter str_opt ~f:structure
-      | Closure (_, e, _, _) -> env e
+      | Closure (_, _, _) -> ()
       | Ident _ | Error _ | Parameter _ -> ()
     and env e = binding e.binding
     and binding b =
@@ -206,7 +206,7 @@ end = struct
               PIdent.format pid
               structure str
               structure str'
-      | Closure (pid, _, id, _f) ->
+      | Closure (pid, id, _f) ->
             fprintf ppf "(@[<2>(%a =)fun %s -> ...@])" 
               PIdent.format pid
               (Ident.name id)
@@ -363,7 +363,6 @@ module Eval = struct
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, 
                         id, 
                         fun v -> module_expr (Env.override env (id, (Kind.Module, v))) None mexp))
     | Tmod_constraint (mexp, _mty, _, _) -> 
@@ -404,7 +403,7 @@ module Eval = struct
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, fun v -> module_type (Env.override env (id, (Kind.Module, v))) None mty2))
+                        id, fun v -> module_type (Env.override env (id, (Kind.Module, v))) None mty2))
     | Tmty_with (mty, _) -> module_type env None mty (* module_type * (Path.t * with_constraint) list *)
     | Tmty_typeof _mty -> assert false
 
@@ -422,7 +421,7 @@ module Eval = struct
           (Ident.name id)
           (String.concat "; " (List.map Ident.name (Env.domain env)));
         eager (Closure ({ PIdent.filepath = env.path; ident = idopt }, 
-                        env, id, fun v -> types_module_type (Env.override env (id, (Kind.Module, v))) None mty2))
+                        id, fun v -> types_module_type (Env.override env (id, (Kind.Module, v))) None mty2))
 
   (* expand internal Include and get alist by Ident.t *)
   (* the list order is REVERSED and is last-defined-first, 
@@ -500,7 +499,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tstr_include (mexp, exported_ids) -> 
-          let kids = Kind.include_coercion exported_ids mexp.mod_env mexp.mod_type in 
+          let kids = XInclude.include_coercion exported_ids (XInclude.sg_of_mtype mexp.mod_env mexp.mod_type) in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -588,8 +587,8 @@ module Eval = struct
           in
           (id, (Kind.Module_type, v)) :: str
 
-      | Tsig_include mty -> 
-          let kids = Kind.kidents_of_mty mty.mty_env mty.mty_type in 
+      | Tsig_include (mty, sg) -> 
+          let kids = XInclude.kidents_of_signature sg in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -679,7 +678,7 @@ module Eval = struct
     | Parameter pid -> Parameter pid
     | Structure _ -> assert false
     | Error exn -> Error exn
-    | Closure (_, _env, _id, f) -> !!(f v2)
+    | Closure (_, _id, f) -> !!(f v2)
 (*
         match mexp_or_mty with
         | Module_expr mexp ->

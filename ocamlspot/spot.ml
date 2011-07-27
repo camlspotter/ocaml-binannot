@@ -17,6 +17,7 @@ open Indexed
 module Position = struct
   open Lexing
 
+  (* CR jfuruse: It is not TAB sensitive. If a user uses Emacs, and there are tabs, position specs are different! *)
   type t = { line_column : (int * int) option; 
              bytes : int option }
 
@@ -304,71 +305,76 @@ module Kind = struct
     | "c"  | "class"       -> Class
     | "ct" | "class_type"  -> Class_type
     | _                    -> raise Not_found
+end
 
-  (* CR jfuruse: DUP (kident_of_sigitem in include_coercion) *)
-  let kidents_of_mty env mty = 
-    let open Typedtree in
-    let open Types in
+module XEnv = struct
+  open Env
+  let idents env =
+    let sum = Env.summary env in
+    let rec ids = function
+      | Env_empty -> []
+      | Env_value (sum, id, { Types.val_kind = Types.Val_prim _; _ }) -> `Ident (id, Kind.Primitive) :: ids sum
+      | Env_value (sum, id, _) -> `Ident (id, Kind.Value) :: ids sum
+      | Env_type (sum, id, _) -> `Ident (id, Kind.Type) :: ids sum
+      | Env_exception (sum, id, _) -> `Ident (id, Kind.Exception) :: ids sum
+      | Env_module (sum, id, _) -> `Ident (id, Kind.Module) :: ids sum
+      | Env_modtype (sum, id, _) -> `Ident (id, Kind.Module_type) :: ids sum
+      | Env_class (sum, id, _) -> `Ident (id, Kind.Class) :: ids sum
+      | Env_cltype (sum, id, _) -> `Ident (id, Kind.Class_type) :: ids sum
+      | Env_open (sum, path) -> `Open path :: ids sum
+    in
+    ids sum
+
+  let format ppf env =
+    let f ppf = function
+      | `Ident (id, k) -> Format.fprintf ppf "%s %a" (Kind.name k) Ident.format id
+      | `Open p -> Format.fprintf ppf "open %a" Path.format p
+    in
+    let ids = idents env in
+    Format.list "; " f ppf ids
+end
+
+module XInclude = struct
+  open Kind
+  open Types
+
+  let sg_of_mtype env mty = 
     let mty = Mtype.scrape env mty in
     match mty with
     | Mty_functor _ -> assert false (* Including a functor?! *)
-    | Mty_ident _ -> assert false (* Including an abstract module?! *)
-    | Mty_signature sg ->
-        let kident_of_sigitem = function
-          | Sig_value (id, {val_kind = Val_reg; _}) -> Value, id
-          | Sig_value (id, _)                       -> Primitive, id
-          | Sig_exception (id, _)                   -> Exception, id
-          | Sig_module (id, _, _)                   -> Module, id
-          | Sig_class (id, _, _)                    -> Class, id
+    | Mty_ident p -> 
+        Format.eprintf "include_coercion includes abstract module %a?@." Path.format p;
+        Format.eprintf "ENV: @[<v>%a@]@." XEnv.format env;
+        (* assert false (* Including an abstract module?! *) *)
+        assert false
+    | Mty_signature sg -> sg
+
+  let kidents_of_signature sg = 
+    let kident_of_sigitem = function
+      | Sig_value (id, {val_kind = Val_reg; _}) -> Value, id
+      | Sig_value (id, _)                       -> Primitive, id
+      | Sig_exception (id, _)                   -> Exception, id
+      | Sig_module (id, _, _)                   -> Module, id
+      | Sig_class (id, _, _)                    -> Class, id
   
-          | Sig_type (id, _, _)                     -> Type, id
-          | Sig_modtype (id, _)                     -> Module_type, id
-          | Sig_class_type (id, _, _)               -> Class_type, id
-        in
-        List.map kident_of_sigitem  sg
+      | Sig_type (id, _, _)                     -> Type, id
+      | Sig_modtype (id, _)                     -> Module_type, id
+      | Sig_class_type (id, _, _)               -> Class_type, id
+    in
+    List.map kident_of_sigitem  sg
 
-  let include_coercion exported_value_ids env mty : (t * Ident.t (*out*) * Ident.t (*in*)) list = 
-    let mty = Mtype.scrape env mty in
-    let open Types in
-    match mty with
-    | Mty_functor _ -> assert false (* Including a functor?! *)
-    | Mty_ident _ -> assert false (* Including an abstract module?! *)
-    | Mty_signature sg ->
-        let internal_value_ids = Typemod.bound_value_identifiers sg in
-        let value_id_table = List.combine internal_value_ids exported_value_ids in
-        let kident_of_sigitem = function
-          | Sig_value (id, {val_kind = Val_reg; _}) -> Value, id
-          | Sig_value (id, _)                       -> Primitive, id
-          | Sig_exception (id, _)                   -> Exception, id
-          | Sig_module (id, _, _)                   -> Module, id
-          | Sig_class (id, _, _)                    -> Class, id
-
-          | Sig_type (id, _, _)                     -> Type, id
-          | Sig_modtype (id, _)                     -> Module_type, id
-          | Sig_class_type (id, _, _)               -> Class_type, id
-        in
-        let kids = List.map kident_of_sigitem sg in
-        (* Fixing internal ids to exported ids.
-           Non value ids are replaced by id with -2 *)
-        let fixed = List.map (fun (k, id) ->
-          (k, 
-           (try List.assoc id value_id_table with Not_found -> 
-             Ident.unsafe_create_with_stamp (Ocaml.Ident.name id) (-2) (* magic number *)),
-           id))
-          kids
-        in
-(*
-        prerr_endline "fixing kids";
-        eprintf "exported: @[%a@]@."
-          (Format.list ", " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) exported_value_ids;
-        eprintf "sig: @[%a@]@."
-          (Format.list ", " (fun ppf (k,id) -> 
-            fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) kids;
-        eprintf "fixed: @[%a@]@."
-          (Format.list ", " (fun ppf (k,id) -> 
-            fprintf ppf "%s:%s" (Kind.to_string k) (Ident.name id))) fixed;
-*)
-        fixed
+  let include_coercion exported_value_ids sg : (t * Ident.t (*out*) * Ident.t (*in*)) list = 
+    let internal_value_ids = Typemod.bound_value_identifiers sg in
+    let value_id_table = List.combine internal_value_ids exported_value_ids in
+    let kids = kidents_of_signature sg in
+    (* Fixing internal ids to exported ids.
+       Non value ids are replaced by id with -2 *)
+    List.map (fun (k, id) ->
+      (k, 
+       (try List.assoc id value_id_table with Not_found -> 
+         Ident.unsafe_create_with_stamp (Ocaml.Ident.name id) (-2) (* magic number *)),
+       id))
+      kids
 
 end
 
@@ -459,13 +465,13 @@ module Annot = struct
 
   let record_include loc modl exported_ids =
     (* include defines new identifiers, and they must be registered into the flat db *)
-    let kidents = Kind.include_coercion exported_ids modl.mod_env modl.mod_type in
+    let kidents = XInclude.include_coercion exported_ids (XInclude.sg_of_mtype modl.mod_env modl.mod_type) in
     List.iter (fun (k, id_out, id_in) ->
       record loc (Def (k, id_out, Some (Def_included (modl, id_in))))) kidents
 
-  let record_include_sig loc mty = 
+  let record_include_sig loc mty sg = 
     (* include defines new identifiers, and they must be registered into the flat db *)
-    let kidents = Kind.include_coercion [] mty.mty_env mty.mty_type in
+    let kidents = XInclude.include_coercion [] sg in
     List.iter (fun (k, id_out, _id_in) ->
       record loc (Def (k, id_out, Some (Def_included_sig mty)))) kidents
 
@@ -582,7 +588,7 @@ module Annot = struct
         | Tsig_modtype (id, Tmodtype_abstract) -> record loc (Def (Kind.Module, id, None))
         | Tsig_modtype (id, Tmodtype_manifest mty) -> record_module_type_def mty.mty_loc id mty
         | Tsig_open path -> record loc (Use (Kind.Module, path))
-        | Tsig_include mty -> record_include_sig loc mty
+        | Tsig_include (mty, sg) -> record_include_sig loc mty sg
         | Tsig_class _list -> () (* CR jfuruse *)
         | Tsig_class_type _list -> () (* CR jfuruse *)
 

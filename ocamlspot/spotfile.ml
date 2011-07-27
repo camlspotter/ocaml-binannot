@@ -373,7 +373,7 @@ module Make(Spotconfig : Spotconfig_intf.S) = struct
       | Value.Ident id -> id, find_loc id
       | Value.Parameter id -> id, find_loc id
       | Value.Structure (id, _, _)  -> id, find_loc id
-      | Value.Closure (id, _, _, _) -> id, find_loc id
+      | Value.Closure (id, _, _) -> id, find_loc id
       | Value.Error (Failure _ as e) -> raise e
       | Value.Error (Load.Old_spot _ as exn) -> raise exn
       | Value.Error exn -> raise exn

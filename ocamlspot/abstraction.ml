@@ -93,7 +93,7 @@ and signature_item sitem st : t list = match sitem.sig_desc with
   | Tsig_recmodule id_mtys -> List.map (fun (id, mty) -> Module (id, module_type mty)) id_mtys @ st
   | Tsig_modtype (id, mtyd) -> Module_type (id, modtype_declaration mtyd) :: st
   | Tsig_open _ -> st
-  | Tsig_include mty -> Include (module_type mty, None) :: st
+  | Tsig_include (mty, _sg) (* CR jfuruse *)  -> Include (module_type mty, None) :: st
   | Tsig_class cinfoss -> List.map (fun cinfos -> Class [cinfos.ci_id_class; cinfos.ci_id_class_type; cinfos.ci_id_object; cinfos.ci_id_typesharp]) cinfoss @ st
   | Tsig_class_type cinfoss -> List.map (fun cinfos -> Class_type [cinfos.ci_id_class; cinfos.ci_id_class_type; cinfos.ci_id_object; cinfos.ci_id_typesharp]) cinfoss @ st
 
@@ -189,7 +189,7 @@ module Format = struct
     | Tsig_modtype (id, mtyd) -> 
         fprintf ppf "@[<2>modtype %a = @[%a@]@]" Ident.format id modtype_declaration mtyd
     | Tsig_open _ -> ()
-    | Tsig_include mty -> 
+    | Tsig_include (mty, _sg) -> 
         fprintf ppf "@[<2>include @[%a@] : { all }@]" 
           module_type mty
     | Tsig_class cinfoss -> 

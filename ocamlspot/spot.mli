@@ -107,9 +107,13 @@ module Kind : sig
   val to_string : t -> string
   val from_string : string -> t
   val name : t -> string
+end
 
-  val kidents_of_mty : Env.t -> Types.module_type -> (t * Ident.t) list
-  val include_coercion : Ident.t list -> Env.t -> Types.module_type -> (t * Ident.t * Ident.t) list
+module XInclude : sig
+  open Types
+  val sg_of_mtype : Env.t -> module_type -> signature
+  val kidents_of_signature : signature -> (Kind.t * Ident.t) list
+  val include_coercion : Ident.t list -> signature -> (Kind.t * Ident.t * Ident.t) list
 end
 
 module Annot : sig
