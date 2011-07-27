@@ -23,7 +23,7 @@ open Locident
 module Locident = struct
   type t = Locident.t
   let rec format ppf t = match t.lident_desc with
-    | LLident s -> Format.pp_print_string ppf s
+    | LLident s -> pp_print_string ppf s
     | LLdot (t, s) -> format ppf "%a.%s" format t s
     | LLapply (t1, t2) -> format ppf "%a(%a)" format t1 format t2
 end
@@ -104,7 +104,7 @@ let get mlpath region pos path =
     else None
   with
   | e -> 
-      Format.printf  "Pathreparse: not supported: %s (%s)@." 
+      printf  "Pathreparse: not supported: %s (%s)@." 
 	str
 	(Printexc.to_string e);
       None;

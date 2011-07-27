@@ -11,8 +11,10 @@
 (*                                                                     *)
 (***********************************************************************)
 
+let printf  = Format.printf
 let fprintf = Format.fprintf
 let eprintf = Format.eprintf
+let pp_print_string = Format.pp_print_string
 
 module List = struct
   include List

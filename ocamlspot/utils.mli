@@ -93,5 +93,7 @@ val protect : string -> ('a -> unit) -> 'a -> unit
 (** Exception is reported to stderr, with the message *)
 
 (** export of Format.fprintf and Format.eprintf. *)
-val fprintf : Format.t -> ('a, Format.t, unit) format -> 'a;;
-val eprintf : ('a, Format.t, unit) format -> 'a;;
+val fprintf : Format.t -> ('a, Format.t, unit) format -> 'a
+val eprintf : ('a, Format.t, unit) format -> 'a
+val printf : ('a, Format.t, unit) format -> 'a
+val pp_print_string : Format.t -> string -> unit

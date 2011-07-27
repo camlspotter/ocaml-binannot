@@ -73,7 +73,7 @@ module Ident = struct
     if pos = 0 then make_global id;
     id
 
-  let format ppf p = Format.pp_print_string ppf (name p)
+  let format ppf p = pp_print_string ppf (name p)
 end
 
 module Path = struct
@@ -104,7 +104,7 @@ module Path = struct
     in
     to_path (Longident.parse s)
 
-  let format ppf p = Format.pp_print_string ppf (name p)
+  let format ppf p = pp_print_string ppf (name p)
 end
 
 module TypeFix : sig

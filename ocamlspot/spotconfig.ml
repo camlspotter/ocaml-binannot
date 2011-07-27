@@ -13,7 +13,6 @@
 
 (* Versions and command line options *)
 
-open Format
 open Utils
 
 open Spot
@@ -148,7 +147,7 @@ let mode =
     | _ -> failwith "You cannot specify mode with --dump"
   end else begin
     Debug.format "anonargs = [%a]@." 
-      (Format.list " " Format.pp_print_string) 
+      (Format.list " " pp_print_string) 
       anonargs;
     match anonargs with
     | [ "query"; spec ] -> `Query (SearchSpec.parse spec)

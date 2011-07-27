@@ -327,8 +327,8 @@ module XEnv = struct
 
   let format ppf env =
     let f ppf = function
-      | `Ident (id, k) -> Format.fprintf ppf "%s %a" (Kind.name k) Ident.format id
-      | `Open p -> Format.fprintf ppf "open %a" Path.format p
+      | `Ident (id, k) -> fprintf ppf "%s %a" (Kind.name k) Ident.format id
+      | `Open p -> fprintf ppf "open %a" Path.format p
     in
     let ids = idents env in
     Format.list "; " f ppf ids
@@ -343,8 +343,8 @@ module XInclude = struct
     match mty with
     | Mty_functor _ -> assert false (* Including a functor?! *)
     | Mty_ident p -> 
-        Format.eprintf "include_coercion includes abstract module %a?@." Path.format p;
-        Format.eprintf "ENV: @[<v>%a@]@." XEnv.format env;
+        eprintf "include_coercion includes abstract module %a?@." Path.format p;
+        eprintf "ENV: @[<v>%a@]@." XEnv.format env;
         (* assert false (* Including an abstract module?! *) *)
         assert false
     | Mty_signature sg -> sg

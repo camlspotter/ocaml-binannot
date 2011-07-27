@@ -13,7 +13,6 @@
 
 (* module names may corride in different source/spot files *)
 
-open Format
 open Utils
 open Indexed
 
@@ -67,7 +66,7 @@ end
 module Main = struct
 
   let bye return =
-    Format.printf "BYE!@.";
+    printf "BYE!@.";
     exit return
 
   let load path =
@@ -82,14 +81,14 @@ module Main = struct
     if C.dump_flat then Dump.flat file;
 
     if C.print_file_info then
-      Format.printf "Compile: %s@."
+      printf "Compile: %s@."
         (String.concat " "
             (List.map Command.escaped_for_shell
                 (Array.to_list file.File.argv)));
 
     if C.print_file_info then
-      Format.printf "@[<v2>Included_dirs:@ %a@]@."
-        (Format.list "" Format.pp_print_string)
+      printf "@[<v2>Included_dirs:@ %a@]@."
+        (Format.list "" pp_print_string)
         file.File.load_paths;
 
     file
@@ -100,17 +99,17 @@ module Main = struct
   ;;
 
   let print_query_result kind = function
-    | None -> Format.printf "Spot: no spot@."
+    | None -> printf "Spot: no spot@."
     | Some (pident, res) ->
         match res with
         | File.File_itself ->
-            Format.printf "Spot: <%s:all>@." pident.PIdent.filepath
+            printf "Spot: <%s:all>@." pident.PIdent.filepath
         | File.Found_at rannot ->
-            Format.printf "Spot: <%s:%s>@."
+            printf "Spot: <%s:%s>@."
               pident.PIdent.filepath
               (Region.to_string rannot.Regioned.region)
         | File.Predefined ->
-            Format.printf "Spot: %a: predefined %s@."
+            printf "Spot: %a: predefined %s@."
               PIdent.format pident
               (Kind.name kind);
   ;;
@@ -157,11 +156,11 @@ module Main = struct
         in
 *)
 
-        List.iter (fun annot -> Format.printf "%a@." Annot.format annot) annots;
+        List.iter (fun annot -> printf "%a@." Annot.format annot) annots;
 
         (* Tree is an older format. XTree is a newer which is the same as one for Spot *)
-        Format.printf "Tree: %s@." (Region.to_string r);
-        Format.printf "XTree: <%s:%s>@." file.File.path (Region.to_string r);
+        printf "Tree: %s@." (Region.to_string r);
+        printf "XTree: <%s:%s>@." file.File.path (Region.to_string r);
 
         (* Find the innermost module *)
         let rec find_module_path = function
@@ -171,7 +170,7 @@ module Main = struct
               id :: find_module_path ls
           | _ :: ls -> find_module_path ls
         in
-        Format.printf "In_module: %s@."
+        printf "In_module: %s@."
           (String.concat "." (List.map Ocaml.Ident.name (List.rev (find_module_path treepath))));
 
         (* print "Val: val name : type" if it is a Str: val *)
@@ -188,7 +187,7 @@ module Main = struct
           in
           match find_type annots, find_str_value annots with
           | Some typ, Some id ->
-              Format.printf "Val: val %s : @[%a@]@."
+              printf "Val: val %s : @[%a@]@."
                 (Ocaml.Ident.name id)
                 (Printtyp.type_scheme ~with_pos:false) typ
           | _ -> ()
@@ -253,7 +252,7 @@ module Main = struct
             | { Regioned.region= region; value= Annot.Use (k', path'); } when k = k' && base = base_ident path' ->
               begin match query_by_kind_path file k' path' with
               | Some found' when found = found' ->
-                  Format.printf "<%s:%s>: %s@."
+                  printf "<%s:%s>: %s@."
                     file.File.path
                     (Region.to_string region)
                     (Path.name path)
@@ -271,7 +270,7 @@ module Main = struct
       let res = query_by_kind_path file k path in
       print_query_result k res;
       match res with
-      | None -> Format.printf "No query result found.@.";
+      | None -> printf "No query result found.@.";
       | Some found -> find_by_kind_path k path found
     in
 
@@ -307,7 +306,7 @@ module Main = struct
       let path = File.cmt_of_file mlpath in
       let file = File.load ~load_paths: ["."] path in
 
-      Format.printf "Compile: %s@."
+      printf "Compile: %s@."
         (String.concat " "
           (List.map Command.escaped_for_shell
             (Array.to_list file.File.argv)));

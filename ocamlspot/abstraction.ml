@@ -16,7 +16,6 @@ open Utils
 open Types
 open Typedtree
 open Indexed
-open Format
 
 type t = 
   | Value of Ident.t
@@ -44,19 +43,19 @@ let rec format ppf = function
   | Exception id -> fprintf ppf "exception %a" Ident.format id
   | Module (id, module_) -> fprintf ppf "@[<2>module %a = %a@]" Ident.format id format_module_ module_
   | Module_type (id, module_) -> fprintf ppf "@[<2>module type %a =@ %a]" Ident.format id format_module_ module_
-  | Class ids -> fprintf ppf "class [@[%a@]]" (list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
-  | Class_type ids -> fprintf ppf "class type [@[%a@]]" (list "; " Ident.format) ids
+  | Class ids -> fprintf ppf "class [@[%a@]]" (Format.list "; " (fun ppf id -> fprintf ppf "%s" (Ident.name id))) ids
+  | Class_type ids -> fprintf ppf "class type [@[%a@]]" (Format.list "; " Ident.format) ids
   | Include (module_, ids_opt) -> 
       fprintf ppf "@[<2>include {@ @[<v>%a@] }%a@]" 
         format_module_ module_ 
         (fun ppf -> function
           | None -> ()
           | Some ids -> 
-              fprintf ppf " [%a]" (list "; " Ident.format) ids) ids_opt
+              fprintf ppf " [%a]" (Format.list "; " Ident.format) ids) ids_opt
         
 and format_module_ ppf = function
   | Path p -> fprintf ppf "%s" (Path.name p)
-  | Structure ts -> fprintf ppf "{ @[<v>%a@] }" (list "; " format) ts
+  | Structure ts -> fprintf ppf "{ @[<v>%a@] }" (Format.list "; " format) ts
   | Functor (id, module_) -> fprintf ppf "\\%a -> %a" Ident.format id format_module_ module_
   | Apply (module_1, module_2) -> fprintf ppf "app(%a, %a)" format_module_ module_1 format_module_ module_2
   | Constraint (module_1, module_2) -> fprintf ppf "constraint(%a, %a)" format_module_ module_1 format_module_ module_2
