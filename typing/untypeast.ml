@@ -314,7 +314,7 @@ and untype_signature_item item =
     | Tsig_modtype (id, mdecl) ->
         Psig_modtype (Ident.name id, untype_modtype_declaration mdecl)
     | Tsig_open path -> Psig_open (lident_of_path path)
-    | Tsig_include mty -> Psig_include (untype_module_type mty)
+    | Tsig_include (mty,_) -> Psig_include (untype_module_type mty)
     | Tsig_class list ->
         Psig_class (List.map untype_class_description list)
     | Tsig_class_type list ->

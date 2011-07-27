@@ -187,8 +187,7 @@ and structure_item_desc =
 and module_type =
   { mty_desc: module_type_desc;
     mty_type : Types.module_type;
-    mty_loc: Location.t;
-    mty_env: Env.t }
+    mty_loc: Location.t }
 
 and module_type_desc =
     Tmty_ident of Path.t
@@ -215,7 +214,7 @@ and signature_item_desc =
   | Tsig_recmodule of (Ident.t * module_type) list
   | Tsig_modtype of Ident.t * modtype_declaration
   | Tsig_open of Path.t
-  | Tsig_include of module_type
+  | Tsig_include of module_type * Types.signature
   | Tsig_class of class_description list
   | Tsig_class_type of class_type_declaration list
 
@@ -792,7 +791,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tsig_modtype (id, mdecl) ->
             iter_modtype_declaration mdecl
         | Tsig_open path -> ()
-        | Tsig_include mty -> iter_module_type mty
+        | Tsig_include (mty, _) -> iter_module_type mty
         | Tsig_class list ->
             List.iter (fun ci ->
               Iter.enter_class_infos ci;
