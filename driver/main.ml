@@ -155,6 +155,8 @@ let default_output = function
 
 let main () =
   try
+    (* OCAML_ANNOT env variable to turn on -annot by default *)
+    (try ignore (Sys.getenv "OCAML_ANNOT"); Clflags.annotations := true with Not_found -> ()); 
     Arg.parse Options.list anonymous usage;
     if
       List.length (List.filter (fun x -> !x)
