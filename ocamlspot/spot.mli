@@ -109,7 +109,7 @@ module Kind : sig
   val name : t -> string
 end
 
-module XInclude : sig
+module Signature : sig
   open Types
   val sg_of_mtype : Env.t -> module_type -> signature
   val kidents_of_signature : signature -> (Kind.t * Ident.t) list

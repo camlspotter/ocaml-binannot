@@ -65,7 +65,7 @@ end
 
 module Main = struct
 
-  let bye return =
+  let bye return : unit =
     printf "BYE!@.";
     exit return
 

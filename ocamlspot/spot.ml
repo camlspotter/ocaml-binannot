@@ -35,8 +35,12 @@ module Position = struct
     | _ -> assert false
 
   let to_string p = match p.line_column, p.bytes with
+(*
     | Some (l,c), Some b -> Printf.sprintf "%d_%d_%d" l c b
     | Some (l,c), None -> Printf.sprintf "%d_%d" l c
+*)
+    | Some (l,c), Some b -> Printf.sprintf "l%dc%db%d" l c b
+    | Some (l,c), None -> Printf.sprintf "l%dc%d" l c
     | None, Some b -> Printf.sprintf "b%d" b
     | None, None -> assert false
 
@@ -334,7 +338,7 @@ module XEnv = struct
     Format.list "; " f ppf ids
 end
 
-module XInclude = struct
+module Signature = struct
   open Kind
   open Types
 
@@ -465,13 +469,13 @@ module Annot = struct
 
   let record_include loc modl exported_ids =
     (* include defines new identifiers, and they must be registered into the flat db *)
-    let kidents = XInclude.include_coercion exported_ids (XInclude.sg_of_mtype modl.mod_env modl.mod_type) in
+    let kidents = Signature.include_coercion exported_ids (Signature.sg_of_mtype modl.mod_env modl.mod_type) in
     List.iter (fun (k, id_out, id_in) ->
       record loc (Def (k, id_out, Some (Def_included (modl, id_in))))) kidents
 
   let record_include_sig loc mty sg = 
     (* include defines new identifiers, and they must be registered into the flat db *)
-    let kidents = XInclude.include_coercion [] sg in
+    let kidents = Signature.include_coercion [] sg in
     List.iter (fun (k, id_out, _id_in) ->
       record loc (Def (k, id_out, Some (Def_included_sig mty)))) kidents
 
@@ -695,7 +699,8 @@ module Annot = struct
       | Tcty_constr (path, _list) -> record ct.cltyp_loc (Use (Kind.Class_type, path))
       | Tcty_fun (_label, _ct, _cl) -> ()
 
-  (*
+  (* Those are left untouched.
+
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
     val enter_type_declaration : type_declaration -> unit

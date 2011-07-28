@@ -16,7 +16,11 @@ open Utils
 open Spot
 
 module PIdent = struct
-  (** Ident with file name *)
+  (** Ident with file name:
+
+      { filepath= "foo.ml"; ident = Some id } : id defined in foo.ml
+      { filepath= "foo.ml"; ident = None } : the module Foo whose definition is foo.ml itself
+  *)
   type t = {
     filepath : string; (* "" means predefined *)
     ident : Ident.t option; (* None means the top module *)
@@ -499,7 +503,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tstr_include (mexp, exported_ids) -> 
-          let kids = XInclude.include_coercion exported_ids (XInclude.sg_of_mtype mexp.mod_env mexp.mod_type) in 
+          let kids = Signature.include_coercion exported_ids (Signature.sg_of_mtype mexp.mod_env mexp.mod_type) in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
@@ -588,7 +592,7 @@ module Eval = struct
           (id, (Kind.Module_type, v)) :: str
 
       | Tsig_include (mty, sg) -> 
-          let kids = XInclude.kidents_of_signature sg in 
+          let kids = Signature.kidents_of_signature sg in 
           let kname_ztbl : ((Kind.t * string) * z) list lazy_t = 
             lazy begin 
               let v_mexp = 
