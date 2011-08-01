@@ -221,7 +221,8 @@ module Analyser =
           Odoc_type.Type_abstract
 
       | Types.Type_variant l ->
-          let f (constructor_name, type_expr_list) =
+          let f (constructor_id, type_expr_list) =
+	    let constructor_name = Ident.name constructor_id in
             let comment_opt =
               try
                 match List.assoc constructor_name name_comment_list with
@@ -238,7 +239,8 @@ module Analyser =
           Odoc_type.Type_variant (List.map f l)
 
       | Types.Type_record (l, _) ->
-          let f (field_name, mutable_flag, type_expr) =
+          let f (field_id, mutable_flag, type_expr) =
+	    let field_name = Ident.name field_id in
             let comment_opt =
               try
                 match List.assoc field_name name_comment_list with

@@ -56,3 +56,7 @@ val echo_eof: unit -> unit
 val reset: unit -> unit
 
 val highlight_locations: formatter -> t -> t -> bool
+
+module StringTbl : Hashtbl.S with type key = string
+
+type string_table = t StringTbl.t

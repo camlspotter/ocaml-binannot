@@ -250,7 +250,10 @@ module Format = struct
     | Typedtree.Saved_expression _
     | Typedtree.Saved_module_type _
     | Typedtree.Saved_pattern _
-    | Typedtree.Saved_class_expr _ -> ()
+    | Typedtree.Saved_class_expr _
+    | Typedtree.Saved_path_environments _ 
+    | Typedtree.Saved_longident_locations _ 
+    | Typedtree.Saved_ident_locations _  -> ()
 
   let saved_types ppf = 
     fprintf ppf "@[<2>{ @[%a@] }@]@." (Format.list "; " saved_type)

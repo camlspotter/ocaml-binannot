@@ -1272,7 +1272,7 @@ let rec type_exp env sexp =
               [] -> []
             | lbl :: rem ->
                 if List.mem n present_indices then missing_labels (n + 1) rem
-                else lbl :: missing_labels (n + 1) rem
+                else Ident.name lbl :: missing_labels (n + 1) rem
           in
           let missing = missing_labels 0 label_names in
           raise(Error(loc, Label_missing missing))

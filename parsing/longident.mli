@@ -23,3 +23,14 @@ val flatten: t -> string list
 val last: t -> string
 val parse: string -> t
 val to_string : t -> string
+
+module LongidentTbl : Hashtbl.S with type key = t
+
+type lid2loc = Location.t LongidentTbl.t
+
+val record_longident_locations : unit -> unit
+
+val flush_longidents : unit -> lid2loc option
+
+val add_longident : Location.t -> t -> unit
+val remove_longident : t -> unit

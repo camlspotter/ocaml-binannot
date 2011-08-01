@@ -71,6 +71,11 @@ let check_unit_name ppf filename name =
 
 (* Compile a .mli file *)
 
+let transl_signature env (ast, loc, lloc) =
+  Env.record_path_environments ();
+  let tsg = Typemod.transl_signature env ast in
+  tsg, loc, lloc, (Env.flush_paths ())
+
 let interface ppf sourcefile outputprefix =
   Location.input_name := sourcefile;
   init_path ();
@@ -80,10 +85,10 @@ let interface ppf sourcefile outputprefix =
   Env.set_unit_name modulename;
   let inputfile = Pparse.preprocess sourcefile in
   try
-    let ast =
-      Pparse.file ppf inputfile Parse.interface ast_intf_magic_number in
-    if !Clflags.dump_parsetree then fprintf ppf "%a@." Printast.interface ast;
-    let tsg = Typemod.transl_signature sourcefile outputprefix (initial_env()) ast in
+    let parsetree, _, _ as ast =
+      Pparse.file ppf inputfile Parse.interface' ast_intf_magic_number in
+    if !Clflags.dump_parsetree then fprintf ppf "%a@." Printast.interface parsetree;
+    let tsg, _, _, _ as s = transl_signature (initial_env()) ast in
     let sg = tsg.sig_type in
     if !Clflags.print_types then
       fprintf std_formatter "%a@." Printtyp.signature
@@ -91,6 +96,8 @@ let interface ppf sourcefile outputprefix =
     Warnings.check_fatal ();
     if not !Clflags.print_types then begin
       Env.save_signature sg modulename (outputprefix ^ ".cmi");
+      Typemod.save_signature
+	s outputprefix sourcefile []; 
     end;
     Pparse.remove_preprocessed inputfile
   with e ->
@@ -116,9 +123,15 @@ let implementation ppf sourcefile outputprefix =
   let env = initial_env() in
   if !Clflags.print_types then begin
     try ignore(
-      Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
+      let parsetree, _, _ as ast =
+	Pparse.file ppf inputfile Parse.implementation' ast_impl_magic_number
+      in
+      parsetree
       ++ print_if ppf Clflags.dump_parsetree Printast.implementation
-      ++ Typemod.type_implementation sourcefile outputprefix modulename env)
+      ++ ignore;
+      ast
+      ++ Typemod.type_implementation
+	   sourcefile outputprefix modulename env)
     with x ->
       Pparse.remove_preprocessed_if_ast inputfile;
       raise x
@@ -126,10 +139,16 @@ let implementation ppf sourcefile outputprefix =
     let objfile = outputprefix ^ ".cmo" in
     let oc = open_out_bin objfile in
     try
-      Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
+      let parsetree, _, _ as ast =
+	Pparse.file ppf inputfile Parse.implementation' ast_impl_magic_number
+      in
+      parsetree
       ++ print_if ppf Clflags.dump_parsetree Printast.implementation
       ++ Unused_var.warn ppf
-      ++ Typemod.type_implementation sourcefile outputprefix modulename env
+      ++ ignore;
+      ast
+      ++ Typemod.type_implementation
+	   sourcefile outputprefix modulename env
       ++ Translmod.transl_implementation modulename
       ++ print_if ppf Clflags.dump_rawlambda Printlambda.lambda
       ++ Simplif.simplify_lambda

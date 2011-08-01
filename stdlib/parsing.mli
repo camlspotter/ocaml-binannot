@@ -76,7 +76,25 @@ val set_trace: bool -> bool
 (** The following definitions are used by the generated parsers only.
    They are not intended to be used by user programs. *)
 
-type parser_env
+type parser_env =
+  { mutable s_stack : int array;        (* States *)
+    mutable v_stack : Obj.t array;      (* Semantic attributes *)
+    mutable symb_start_stack : Lexing.position array; (* Start positions *)
+    mutable symb_end_stack : Lexing.position array;   (* End positions *)
+    mutable stacksize : int;            (* Size of the stacks *)
+    mutable stackbase : int;            (* Base sp for current parse *)
+    mutable curr_char : int;            (* Last token read *)
+    mutable lval : Obj.t;               (* Its semantic attribute *)
+    mutable symb_start : Lexing.position;      (* Start pos. of the current symbol*)
+    mutable symb_end : Lexing.position;        (* End pos. of the current symbol *)
+    mutable asp : int;                  (* The stack pointer for attributes *)
+    mutable rule_len : int;             (* Number of rhs items in the rule *)
+    mutable rule_number : int;          (* Rule number to reduce by *)
+    mutable sp : int;                   (* Saved sp for parse_engine *)
+    mutable state : int;                (* Saved state for parse_engine *)
+    mutable errflag : int }             (* Saved error flag for parse_engine *)
+
+val env : parser_env
 
 type parse_tables =
   { actions : (parser_env -> Obj.t) array;
@@ -103,3 +121,24 @@ val yyparse :
 val peek_val : parser_env -> int -> 'a
 val is_current_lookahead : 'a -> bool
 val parse_error : string -> unit
+
+(* Added to implement a backtracking parser  *)
+type parser_input =
+    Start
+  | Token_read
+  | Stacks_grown_1
+  | Stacks_grown_2
+  | Semantic_action_computed
+  | Error_detected
+
+type parser_output =
+    Read_token
+  | Raise_parse_error
+  | Grow_stacks_1
+  | Grow_stacks_2
+  | Compute_semantic_action
+  | Call_error_function
+
+external parse_engine :
+    parse_tables -> parser_env -> parser_input -> Obj.t -> parser_output
+    = "caml_parse_engine"

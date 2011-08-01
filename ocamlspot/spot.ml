@@ -735,6 +735,9 @@ module Annot = struct
     | Saved_module_type mt -> Iterator.iter_module_type mt
     | Saved_pattern p -> Iterator.iter_pattern p
     | Saved_class_expr ce -> Iterator.iter_class_expr ce
+    | Saved_path_environments _ 
+    | Saved_longident_locations _ 
+    | Saved_ident_locations _  -> ()
 
   let recorded () = Hashtbl.fold (fun k v st -> (k,v) :: st) recorded []
 

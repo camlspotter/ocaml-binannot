@@ -34,3 +34,7 @@ open Format
 val report_error: formatter -> error -> unit
 
 val in_comment : unit -> bool;;
+
+val record_ident_locations : unit -> unit
+
+val flush_idents : unit -> Location.string_table option

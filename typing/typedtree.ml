@@ -167,6 +167,7 @@ and structure = {
 and structure_item =
   { str_desc : structure_item_desc;
     str_loc : Location.t;
+    str_env : Env.t
   }
 
 and structure_item_desc =
@@ -359,6 +360,9 @@ type saved_type =
 | Saved_module_type of module_type
 | Saved_pattern of pattern
 | Saved_class_expr of class_expr
+| Saved_ident_locations of Location.string_table option
+| Saved_longident_locations of Longident.lid2loc option
+| Saved_path_environments of Env.lid2env option
 
 let saved_types = ref []
 let get_saved_types () = !saved_types

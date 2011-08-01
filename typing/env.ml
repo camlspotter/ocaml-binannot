@@ -491,22 +491,140 @@ let lookup_simple proj1 proj2 lid env =
   | Lapply(l1, l2) ->
       raise Not_found
 
+module LongidentTbl = Hashtbl.Make
+  (struct
+    type t = Longident.t
+    let equal = ( == )
+    let hash = Hashtbl.hash
+   end)
+
+type path_sort =
+  | Value
+  | Annot
+  | Constructor
+  | Label
+  | Type
+  | Module
+  | Modtype
+  | Class
+  | Cltype
+
+type lid2env = (path_sort * t) LongidentTbl.t
+
+let lid2env = ref None
+
+let record_path_environments () =
+  lid2env := Some (LongidentTbl.create 1000)
+
+let flush_paths () =
+  let paths = !lid2env in
+    lid2env := None;
+    paths
+
+let record sort lid env =
+  match !lid2env with
+    | Some t ->
+      if
+	(try
+	   let s, e = LongidentTbl.find t lid in
+	   s != sort || e != env
+	 with Not_found -> true)
+      then
+	LongidentTbl.add t lid (sort, env)
+    | None -> ()
+
+let recording sort lookup lid env =
+  record sort lid env;
+  lookup lid env
+
+let lookup_module = recording Module lookup_module
+
+let lookup sort proj1 proj2 lid env =
+  record sort lid env;
+  lookup proj1 proj2 lid env
+
 let lookup_value =
-  lookup (fun env -> env.values) (fun sc -> sc.comp_values)
+  lookup Value (fun env -> env.values) (fun sc -> sc.comp_values)
 let lookup_annot id e =
-  lookup (fun env -> env.annotations) (fun sc -> sc.comp_annotations) id e
+  lookup Annot (fun env -> env.annotations) (fun sc -> sc.comp_annotations) id e
 and lookup_constructor =
-  lookup (fun env -> env.constrs) (fun sc -> sc.comp_constrs)
+  lookup Constructor (fun env -> env.constrs) (fun sc -> sc.comp_constrs)
 and lookup_label =
-  lookup (fun env -> env.labels) (fun sc -> sc.comp_labels)
+  lookup Label (fun env -> env.labels) (fun sc -> sc.comp_labels)
 and lookup_type =
-  lookup (fun env -> env.types) (fun sc -> sc.comp_types)
+  lookup Type (fun env -> env.types) (fun sc -> sc.comp_types)
 and lookup_modtype =
-  lookup (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes)
+  lookup Modtype (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes)
 and lookup_class =
-  lookup (fun env -> env.classes) (fun sc -> sc.comp_classes)
+  lookup Class (fun env -> env.classes) (fun sc -> sc.comp_classes)
 and lookup_cltype =
-  lookup (fun env -> env.cltypes) (fun sc -> sc.comp_cltypes)
+  lookup Cltype (fun env -> env.cltypes) (fun sc -> sc.comp_cltypes)
+
+let ident_tbl_fold f t acc =
+  List.fold_right
+    (fun key acc -> f key (Ident.find_same key t) acc)
+    (Ident.keys t)
+    acc
+
+let find_all proj1 proj2 f lid env =
+  match lid with
+    | None ->
+      ident_tbl_fold
+	(fun id (p, data) -> f (Ident.name id) p data)
+	(proj1 env)
+    | Some l ->
+      let p, desc = lookup_module_descr l env in
+      begin match Lazy.force desc with
+          Structure_comps c ->
+            Tbl.fold
+	      (fun s (data, pos) -> f s (Pdot (p, s, pos)) data)
+	      (proj2 c)
+	| Functor_comps _ ->
+          raise Not_found
+      end
+
+
+let fold_modules f lid env acc =
+  match lid with
+    | None ->
+      let acc =
+	ident_tbl_fold
+	  (fun id (p, data) -> f (Ident.name id) p data)
+	  env.modules
+	  acc
+      in
+      Hashtbl.fold
+	(fun name ps ->
+	  f name (Pident(Ident.create_persistent name)) (Mty_signature ps.ps_sig))
+	persistent_structures
+	acc
+    | Some l ->
+      let p, desc = lookup_module_descr l env in
+      begin match Lazy.force desc with
+          Structure_comps c ->
+            Tbl.fold
+	      (fun s (data, pos) -> f s (Pdot (p, s, pos)) (Lazy.force data))
+	      c.comp_modules
+	      acc
+	| Functor_comps _ ->
+          raise Not_found
+      end
+
+
+let fold_values f =
+  find_all (fun env -> env.values) (fun sc -> sc.comp_values) f
+and fold_constructors f =
+  find_all (fun env -> env.constrs) (fun sc -> sc.comp_constrs) f
+and fold_labels f =
+  find_all (fun env -> env.labels) (fun sc -> sc.comp_labels) f
+and fold_types f =
+  find_all (fun env -> env.types) (fun sc -> sc.comp_types) f
+and fold_modtypes f =
+  find_all (fun env -> env.modtypes) (fun sc -> sc.comp_modtypes) f
+and fold_classs f =
+  find_all (fun env -> env.classes) (fun sc -> sc.comp_classes) f
+and fold_cltypes f =
+  find_all (fun env -> env.cltypes) (fun sc -> sc.comp_cltypes) f
 
 (* Expand manifest module type names at the top of the given module type *)
 
@@ -624,11 +742,13 @@ match scrape_modtype mty env with
               Tbl.add (Ident.name id) (decl', nopos) c.comp_types;
             List.iter
               (fun (name, descr) ->
-                c.comp_constrs <- Tbl.add name (descr, nopos) c.comp_constrs)
+                c.comp_constrs <-
+		  Tbl.add (Ident.name name) (descr, nopos) c.comp_constrs)
               (constructors_of_type path decl');
             List.iter
               (fun (name, descr) ->
-                c.comp_labels <- Tbl.add name (descr, nopos) c.comp_labels)
+                c.comp_labels <-
+		  Tbl.add (Ident.name name) (descr, nopos) c.comp_labels)
               (labels_of_type path decl');
             env := store_type_infos id path decl !env
         | Sig_exception(id, decl) ->
@@ -700,15 +820,13 @@ and store_type id path info env =
   { env with
     constrs =
       List.fold_right
-      (fun (name, descr) constrs ->
-        let id = Ident.create name in
+      (fun (id, descr) constrs ->
         Ident.add id (path_subst_last path id, descr) constrs)
         (constructors_of_type path info)
         env.constrs;
     labels =
       List.fold_right
-      (fun (name, descr) labels ->
-        let id = Ident.create name in
+      (fun (id, descr) labels ->
         Ident.add id (path_subst_last path id, descr) labels)
         (labels_of_type path info)
         env.labels;

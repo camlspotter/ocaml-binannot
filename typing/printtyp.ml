@@ -588,10 +588,10 @@ let rec tree_of_type_decl id decl =
   (name, args, ty, priv, constraints)
 
 and tree_of_constructor (name, args) =
-  (name, tree_of_typlist false args)
+  (Ident.name name, tree_of_typlist false args)
 
 and tree_of_label (name, mut, arg) =
-  (name, mut = Mutable, tree_of_typexp false arg)
+  (Ident.name name, mut = Mutable, tree_of_typexp false arg)
 
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)

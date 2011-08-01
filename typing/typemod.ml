@@ -756,8 +756,8 @@ let wrap_constraint env arg mty explicit =
 
 (* Type a module value expression *)
 
-let mkstr desc loc =
-  let str = { str_desc = desc; str_loc = loc } in
+let mkstr desc loc env =
+  let str = { str_desc = desc; str_loc = loc; str_env = env } in
   Typedtree.add_saved_type (Saved_structure_item str);
   str
 
@@ -858,6 +858,7 @@ and type_structure funct_body anchor env sstr scope =
   and module_names = ref StringSet.empty
   and modtype_names = ref StringSet.empty in
   let rec type_struct env sstr =
+    let mkstr desc loc = mkstr desc loc env in
     Ctype.init_def(Ident.current_time());
     match sstr with
       [] ->
@@ -1171,51 +1172,75 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
     end
   end
 
-(* CR jfuruse: Bad place of definition. Move it somewhere more appropriate *)
-type command_context = {
-  argv : string array;
-  sourcefile: string;
-  cwd : string;
-  load_path : string list;
-}
+module CMT = struct
+  (* CR jfuruse: Bad place of definition. Move it somewhere more appropriate *)
+  type command_context = {
+    argv : string array;
+    sourcefile: string;
+    cwd : string;
+    load_path : string list;
+  }
+  
+  let save_command_context oc sourcefile =
+    output_value oc { argv = Sys.argv;
+                      sourcefile = sourcefile;
+                      cwd = Sys.getcwd ();
+                      load_path = !Config.load_path }
+  
+  let load_command_context ic : command_context =
+    input_value ic
+  
+  let save_cmt path (saved_types : saved_type array) sourcefile (packed_modules : string list) =
+    if !Clflags.annotations && not !Clflags.print_types then begin
+      let oc = open_out path in
+      output_value oc saved_types;
+      save_command_context oc sourcefile;
+      output_value oc packed_modules;
+      close_out oc;
+      Typedtree.set_saved_types [];
+    end
+end
 
-let save_command_context oc sourcefile =
-  output_value oc { argv = Sys.argv;
-                    sourcefile = sourcefile;
-                    cwd = Sys.getcwd ();
-                    load_path = !Config.load_path }
+let save_signature (tsg, loc, lloc, penv) outputprefix sourcefile =
+  CMT.save_cmt (outputprefix ^ ".cmti") 
+    [| Saved_signature tsg;
+       Saved_ident_locations loc;
+       Saved_longident_locations lloc;
+       Saved_path_environments penv
+    |]
+    sourcefile
 
-let load_command_context ic : command_context =
-  input_value ic
-
-let save_cmt path (saved_types : saved_type array) sourcefile (packed_modules : string list) =
-  if !Clflags.annotations && not !Clflags.print_types then begin
-    let oc = open_out path in
-    output_value oc saved_types;
-    save_command_context oc sourcefile;
-    output_value oc packed_modules;
-    close_out oc;
-    Typedtree.set_saved_types [];
-  end
-
-let transl_signature sourcefile outputprefix initial_env sg =
+let type_implementation
+    sourcefile outputprefix modulename initial_env (ast, loc, lloc) =
   try
-    let tsg = transl_signature initial_env sg in
-    save_cmt (outputprefix ^ ".cmti") [| Saved_signature tsg |] sourcefile [];
-    tsg
-  with e ->
-    save_cmt (outputprefix ^ ".cmti") (Array.of_list (Typedtree.get_saved_types ())) sourcefile [];
-    raise e
-
-let type_implementation sourcefile outputprefix modulename initial_env ast =
-  try
     Typedtree.set_saved_types [];
+    Env.record_path_environments ();
     let (str, coercion) = type_implementation sourcefile outputprefix modulename initial_env ast in
-    (* CR jfuruse: I think the code for saving types should be in driver, not in  typing *)
-    save_cmt (outputprefix ^ ".cmt") [| Saved_implementation str |] sourcefile [];
+    begin 
+    CMT.save_cmt (outputprefix ^ ".cmt") [|
+      Saved_implementation str;
+      Saved_ident_locations loc;
+      Saved_longident_locations lloc;
+      Saved_path_environments (Env.flush_paths ())
+    |] sourcefile []
+(*
+        let oc = open_out (outputprefix ^ "_ast2src.ml") in
+        let ppf = Format.formatter_of_out_channel oc in
+        Pprintast.print_structure ppf ast;
+        Format.pp_print_flush ppf ();
+        close_out oc;
+
+
+        let oc = open_out (outputprefix ^ "_typ2src.ml") in
+        let ppf = Format.formatter_of_out_channel oc in
+        Pprintast.print_structure ppf (Untypeast.untype_structure str);
+        Format.pp_print_flush ppf ();
+        close_out oc;
+*)
+      end;
     (str, coercion)
   with e ->
-    save_cmt (outputprefix ^ ".cmt") (Array.of_list (Typedtree.get_saved_types ())) sourcefile [];
+    CMT.save_cmt (outputprefix ^ ".cmt") (Array.of_list (Typedtree.get_saved_types ())) sourcefile [];
     raise e
 
 (* "Packaging" of several compilation units into one unit
@@ -1251,7 +1276,7 @@ let package_units objfiles cmifile modulename =
   let prefix = chop_extension_if_any cmifile in
   let mlifile = prefix ^ !Config.interface_suffix in
   let cmtfile = prefix ^ ".cmt" in
-  save_cmt cmtfile [||] (prefix ^ ".cmo") objfiles; (* CR jfuruse: what about opt compilation ? *)
+  CMT.save_cmt cmtfile [||] (prefix ^ ".cmo") objfiles; (* CR jfuruse: what about opt compilation ? *)
   if Sys.file_exists mlifile then begin
     if not (Sys.file_exists cmifile) then begin
       raise(Error(Location.in_file mlifile, Interface_not_compiled mlifile))

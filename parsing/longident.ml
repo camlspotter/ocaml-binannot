@@ -46,3 +46,33 @@ let rec to_string = function
   | Lident s -> s
   | Ldot (t, s) -> to_string t ^ "." ^ s
   | Lapply (t1, t2) -> Printf.sprintf "%s(%s)" (to_string t1) (to_string t2)
+
+module LongidentTbl = Hashtbl.Make
+  (struct
+    type u = t
+    type t = u
+    let equal = ( == )
+    let hash = Hashtbl.hash
+   end)
+
+type lid2loc = Location.t LongidentTbl.t
+
+let longident_table : lid2loc option ref = ref None
+
+let record_longident_locations () =
+  longident_table := Some (LongidentTbl.create 1000)
+
+let flush_longidents () =
+  let idents = !longident_table in
+    longident_table := None;
+    idents
+
+let add_longident loc i =
+  match !longident_table with
+    | Some t -> LongidentTbl.add t i loc
+    | None -> ()
+
+let remove_longident i =
+  match !longident_table with
+    | Some t -> LongidentTbl.remove t i
+    | None -> ()

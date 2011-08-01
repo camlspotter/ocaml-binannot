@@ -69,7 +69,7 @@ let file ppf inputfile parse_fun ast_magic =
           fprintf ppf "@[Warning: %s@]@."
             "option -unsafe used with a preprocessor returning a syntax tree";
         Location.input_name := input_value ic;
-        input_value ic
+        input_value ic, None, None
       end else begin
         seek_in ic 0;
         Location.input_name := inputfile;

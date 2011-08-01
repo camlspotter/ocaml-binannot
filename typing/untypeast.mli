@@ -19,9 +19,4 @@
 val untype_structure : Typedtree.structure -> Parsetree.structure
 val untype_signature : Typedtree.signature -> Parsetree.signature
 
-val untype_structure_item : Typedtree.structure_item -> Parsetree.structure_item
-val untype_signature_item : Typedtree.signature_item -> Parsetree.signature_item
-val untype_expression : Typedtree.expression -> Parsetree.expression
-val untype_module_type : Typedtree.module_type -> Parsetree.module_type
-val untype_pattern : Typedtree.pattern -> Parsetree.pattern
-val untype_class_expr : Typedtree.class_expr -> Parsetree.class_expr
+val lident_of_path : Path.t -> Longident.t
