@@ -1208,7 +1208,7 @@ let save_signature (tsg, loc, lloc, penv) outputprefix sourcefile =
        Saved_longident_locations lloc;
        Saved_path_environments penv
     |]
-    sourcefile
+    sourcefile []
 
 let type_implementation
     sourcefile outputprefix modulename initial_env (ast, loc, lloc) =

@@ -29,7 +29,8 @@ val type_implementation:
   (Parsetree.structure * Location.string_table option
    * Longident.lid2loc option) ->
   Typedtree.structure * Typedtree.module_coercion
-val transl_signature: Env.t -> Parsetree.signature -> Typedtree.signature
+val transl_signature:
+        Env.t -> Parsetree.signature -> Typedtree.signature
 
 val check_nongen_schemes:
         Env.t -> Typedtree.structure_item list -> unit
@@ -39,7 +40,7 @@ val simplify_signature: signature -> signature
 val save_signature :
   (Typedtree.signature * Location.string_table option
    * Longident.lid2loc option * Env.lid2env option) ->
-  string -> string -> string list -> unit
+  string -> string -> unit
 
 val package_units:
         string list -> string -> string -> Typedtree.module_coercion

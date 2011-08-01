@@ -97,7 +97,7 @@ let interface ppf sourcefile outputprefix =
     if not !Clflags.print_types then begin
       Env.save_signature sg modulename (outputprefix ^ ".cmi");
       Typemod.save_signature
-	s outputprefix sourcefile []; 
+	s outputprefix sourcefile; 
     end;
     Pparse.remove_preprocessed inputfile
   with e ->
